@@ -1,5 +1,5 @@
 ---
-name: with-md
+name: with-md-share
 description: "Create shareable markdown links for collaboration with humans. Share plans, documents, reports, and drafts as beautiful editable web pages. Use when the user needs to review, comment on, or iterate on markdown content in a browser — such as project plans, proposals, meeting notes, or any document that benefits from human feedback. Do NOT use for confidential or sensitive content. Keywords: share markdown, shareable link, collaboration, document sharing, publish markdown, editable document, review draft, share plan, send link, web preview, markdown editor, collaborative editing, human review, feedback loop."
 ---
 
