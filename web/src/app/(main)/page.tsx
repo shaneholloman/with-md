@@ -1,20 +1,68 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState, type ChangeEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import Link from 'next/link';
 
 import { useAuth } from '@/hooks/with-md/use-auth';
 
-const LANDING_FEATURE_WORDS = ['Human', 'Agent'] as const;
-const LANDING_FEATURE_HOLD_MS = 2400;
-const LANDING_FEATURE_ERASE_MS = 150;
-const LANDING_FEATURE_TYPE_MS = 180;
+const LANDING_SYNC_WORDS = ['instant', 'real-time'] as const;
+const LANDING_SYNC_HOLD_MS = 2400;
+const LANDING_SYNC_ERASE_MS = 150;
+const LANDING_SYNC_TYPE_MS = 180;
 const LANDING_ANIMATED_CURSOR_NAME = 'claudia';
 const LANDING_ANIMATED_CURSOR_COLOR = '#facc15';
+const SKILL_INSTALL_CLIPBOARD_TEXT = 'Install and use the with.md skill in this terminal session. Follow https://with.md/skill and use https://with.md/skill/md as the canonical skill file.';
 
 function isMarkdownName(name: string): boolean {
   const lower = name.toLowerCase();
   return lower.endsWith('.md') || lower.endsWith('.markdown');
+}
+
+function normalizeWebTargetInput(rawInput: string): string | null {
+  const trimmed = rawInput.trim();
+  if (!trimmed) return null;
+
+  let candidate = trimmed;
+  candidate = candidate.replace(/^https?:\/\/with\.md\//i, '');
+  candidate = candidate.replace(/^with\.md\//i, '');
+
+  if (!/^https?:\/\//i.test(candidate)) {
+    candidate = `https://${candidate}`;
+  }
+
+  try {
+    const parsed = new URL(candidate);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return null;
+    }
+    parsed.hash = '';
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+}
+
+function buildWebTargetRoutePath(normalizedUrl: string): string {
+  const parsed = new URL(normalizedUrl);
+  const segments: string[] = [parsed.protocol, parsed.host];
+
+  const pathSegments = parsed.pathname
+    .split('/')
+    .map((segment) => segment.trim())
+    .filter(Boolean);
+  segments.push(...pathSegments);
+
+  if (parsed.search) {
+    if (segments.length > 2) {
+      const last = segments.pop() ?? '';
+      segments.push(`${last}${parsed.search}`);
+    } else {
+      segments.push(parsed.search);
+    }
+  }
+
+  const routeSegments = segments.map((segment, index) => (index < 2 ? segment : encodeURIComponent(segment)));
+  return `/${routeSegments.join('/')}`;
 }
 
 export default function Home() {
@@ -24,8 +72,11 @@ export default function Home() {
   const [anonMessage, setAnonMessage] = useState<string | null>(null);
   const [landingDropActive, setLandingDropActive] = useState(false);
   const [landscapeMode, setLandscapeMode] = useState(false);
-  const [animatedFeatureWord, setAnimatedFeatureWord] = useState<string>(LANDING_FEATURE_WORDS[0]);
-  const [animatedFeatureTargetIndex, setAnimatedFeatureTargetIndex] = useState(1);
+  const [animatedSyncWord, setAnimatedSyncWord] = useState<string>(LANDING_SYNC_WORDS[0]);
+  const [animatedSyncTargetIndex, setAnimatedSyncTargetIndex] = useState(1);
+  const [skillCopied, setSkillCopied] = useState(false);
+  const [webTargetInput, setWebTargetInput] = useState('');
+  const [webTargetError, setWebTargetError] = useState<string | null>(null);
 
   const createBlankMarkdown = useCallback(async () => {
     if (anonBusy) return;
@@ -100,6 +151,26 @@ export default function Home() {
     fileInputRef.current?.click();
   }, [anonBusy]);
 
+  const onCopySkillInstructions = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(SKILL_INSTALL_CLIPBOARD_TEXT);
+      setSkillCopied(true);
+    } catch {
+      setSkillCopied(false);
+    }
+  }, []);
+
+  const onSubmitWebTarget = useCallback((event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const normalized = normalizeWebTargetInput(webTargetInput);
+    if (!normalized) {
+      setWebTargetError('Enter a valid public http(s) URL.');
+      return;
+    }
+    setWebTargetError(null);
+    window.location.href = buildWebTargetRoutePath(normalized);
+  }, [webTargetInput]);
+
   useEffect(() => {
     if (landscapeMode) {
       setLandingDropActive(false);
@@ -164,37 +235,43 @@ export default function Home() {
       return;
     }
 
-    const targetWord = LANDING_FEATURE_WORDS[animatedFeatureTargetIndex];
-    const shouldErase = animatedFeatureWord.length > 0 && !targetWord.startsWith(animatedFeatureWord);
-    const shouldType = animatedFeatureWord.length < targetWord.length && targetWord.startsWith(animatedFeatureWord);
+    const targetWord = LANDING_SYNC_WORDS[animatedSyncTargetIndex];
+    const shouldErase = animatedSyncWord.length > 0 && !targetWord.startsWith(animatedSyncWord);
+    const shouldType = animatedSyncWord.length < targetWord.length && targetWord.startsWith(animatedSyncWord);
     const delay = shouldErase
-      ? LANDING_FEATURE_ERASE_MS
+      ? LANDING_SYNC_ERASE_MS
       : shouldType
-        ? LANDING_FEATURE_TYPE_MS
-        : LANDING_FEATURE_HOLD_MS;
+        ? LANDING_SYNC_TYPE_MS
+        : LANDING_SYNC_HOLD_MS;
 
     const timer = window.setTimeout(() => {
       if (shouldErase) {
-        setAnimatedFeatureWord((prev) => prev.slice(0, -1));
+        setAnimatedSyncWord((prev) => prev.slice(0, -1));
         return;
       }
       if (shouldType) {
-        const nextLength = Math.min(animatedFeatureWord.length + 1, targetWord.length);
-        setAnimatedFeatureWord(targetWord.slice(0, nextLength));
+        const nextLength = Math.min(animatedSyncWord.length + 1, targetWord.length);
+        setAnimatedSyncWord(targetWord.slice(0, nextLength));
         return;
       }
-      setAnimatedFeatureTargetIndex((prev) => (prev + 1) % LANDING_FEATURE_WORDS.length);
+      setAnimatedSyncTargetIndex((prev) => (prev + 1) % LANDING_SYNC_WORDS.length);
     }, delay);
 
     return () => {
       window.clearTimeout(timer);
     };
-  }, [animatedFeatureTargetIndex, animatedFeatureWord, landscapeMode]);
+  }, [animatedSyncTargetIndex, animatedSyncWord, landscapeMode]);
+
+  useEffect(() => {
+    if (!skillCopied) return;
+    const timer = window.setTimeout(() => setSkillCopied(false), 1800);
+    return () => window.clearTimeout(timer);
+  }, [skillCopied]);
 
   const authHelper = user
-    ? 'Open your workspace to edit markdown files from your GitHub repos'
-    : 'Sign in with GitHub to see markdown files in your repos';
-  const authSubtitle = 'Collaborate live, and push changes back.';
+    ? 'Connect your Github repo'
+    : 'Connect your Github repo';
+  const authSubtitle = 'Collaborate live, push changes back. Your files, your repos. No lock-in, no proprietary formats.';
 
   return (
     <main className={`withmd-bg withmd-page withmd-landing ${landingDropActive ? 'is-drop-active' : ''}`}>
@@ -205,7 +282,14 @@ export default function Home() {
               <div className="withmd-landing-inner">
                 <h1 className="withmd-landing-title">Collaborate with.md files</h1>
                 <p className="withmd-landing-tagline">
-                  Open-source markdown-native collaboration for humans and agents.
+                  Share and edit markdown files. With live cursors,{' '}
+                  <span className="withmd-landing-animated-word">{animatedSyncWord}</span>
+                  <span className="withmd-landing-cursor-inline withmd-landing-tagline-cursor" style={{ color: LANDING_ANIMATED_CURSOR_COLOR }}>
+                    <span className="collaboration-cursor__caret" aria-hidden="true">
+                      <span className="collaboration-cursor__label">{LANDING_ANIMATED_CURSOR_NAME}</span>
+                    </span>
+                  </span>{' '}
+                  sync, and comments.
                 </p>
 
                 <hr className="withmd-landing-rule withmd-landing-anon-divider" />
@@ -257,6 +341,29 @@ export default function Home() {
                   </div>
                 </div>
 
+                <form className="withmd-landing-webtarget-form" onSubmit={onSubmitWebTarget}>
+                  <div className="withmd-landing-webtarget-input-wrap">
+                    <input
+                      type="text"
+                      className="withmd-landing-webtarget-input"
+                      value={webTargetInput}
+                      onChange={(event) => {
+                        setWebTargetInput(event.target.value);
+                        if (webTargetError) setWebTargetError(null);
+                      }}
+                      placeholder="Paste a URL to convert to markdown (example.com/post)"
+                      aria-label="Website URL"
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      spellCheck={false}
+                    />
+                    <button type="submit" className="withmd-landing-webtarget-submit" aria-label="Convert URL to markdown">
+                      <ArrowUpRightIcon />
+                    </button>
+                  </div>
+                  {webTargetError ? <p className="withmd-landing-webtarget-message">{webTargetError}</p> : null}
+                </form>
+
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -288,37 +395,24 @@ export default function Home() {
                 <hr className="withmd-landing-rule" />
 
                 <div className="withmd-landing-section">
-                  <h2 className="withmd-landing-h2">Your files, your repos</h2>
+                  <h2 className="withmd-landing-h2">Install the skill or extension</h2>
                   <p className="withmd-landing-body">
-                    Edit markdown directly from any GitHub repo. No lock-in, no proprietary formats.
-                  </p>
-                </div>
-
-                <hr className="withmd-landing-rule" />
-
-                <div className="withmd-landing-section">
-                  <h2 className="withmd-landing-h2">Real-time collaboration</h2>
-                  <p className="withmd-landing-body">
-                    Live cursors, instant sync, and comments anchored to specific passages. Built for
-                    teams that think in plain text.
-                  </p>
-                </div>
-
-                <hr className="withmd-landing-rule" />
-
-                <div className="withmd-landing-section">
-                  <h2 className="withmd-landing-h2 withmd-landing-animated-title">
-                    <span className="withmd-landing-animated-word">{animatedFeatureWord}</span>
-                    <span className="withmd-landing-cursor-inline" style={{ color: LANDING_ANIMATED_CURSOR_COLOR }}>
-                      <span className="collaboration-cursor__caret" aria-hidden="true">
-                        <span className="collaboration-cursor__label">{LANDING_ANIMATED_CURSOR_NAME}</span>
-                      </span>
+                    Let your agent create shareable and editable markdown links for you. Copy the instructions for your claude code/codex -&gt;{' '}
+                    <button
+                      type="button"
+                      className="withmd-landing-skill-icon-link"
+                      aria-label="Copy with.md skill instructions"
+                      onClick={() => void onCopySkillInstructions()}
+                    >
+                      <CopyIcon />
+                    </button>
+                    <span
+                      className={`withmd-landing-skill-copy-toast ${skillCopied ? 'is-visible' : ''}`}
+                      role="status"
+                      aria-live="polite"
+                    >
+                      {skillCopied ? 'Copied instructions.' : ''}
                     </span>
-                    <span>-friendly by design</span>
-                  </h2>
-                  <p className="withmd-landing-body">
-                    Humans and AI agents read, write, and collaborate through the same interface.
-                    Markdown as the medium for human-agent teamwork.
                   </p>
                 </div>
 
@@ -375,6 +469,22 @@ function DocumentIcon() {
       <path d="M6.5 7H11V2.5" />
       <path d="M9 11.5H15.5" />
       <path d="M9 15.5H15.5" />
+    </svg>
+  );
+}
+
+function CopyIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M16 1a2 2 0 0 1 2 2v2h1a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-2H5a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h11Zm-8 18v2h11V7H8v12Zm8-16H5v14h1V7a2 2 0 0 1 2-2h8V3Z" />
+    </svg>
+  );
+}
+
+function ArrowUpRightIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M7 17L17 7M9 7h8v8" />
     </svg>
   );
 }

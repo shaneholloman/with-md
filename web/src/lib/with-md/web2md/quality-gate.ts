@@ -37,6 +37,27 @@ const HARD_BLOCK_PATTERNS = [
   /this page maybe not yet fully loaded/i,
 ];
 
+const BLOCKED_EARLY_WINDOW_CHARS = 2200;
+
+function countPatternHits(value: string, patterns: RegExp[]): number {
+  let hits = 0;
+  for (const pattern of patterns) {
+    if (pattern.test(value)) hits += 1;
+  }
+  return hits;
+}
+
+function detectBlockedPage(markdown: string, markdownWords: number): boolean {
+  const early = markdown.slice(0, BLOCKED_EARLY_WINDOW_CHARS);
+  const earlyHits = countPatternHits(early, HARD_BLOCK_PATTERNS);
+  const totalHits = countPatternHits(markdown, HARD_BLOCK_PATTERNS);
+
+  if (earlyHits >= 2) return true;
+  if (earlyHits >= 1 && markdownWords < 450) return true;
+  if (totalHits >= 3 && markdownWords < 900) return true;
+  return false;
+}
+
 function wordCount(value: string): number {
   if (!value.trim()) return 0;
   return value.trim().split(/\s+/).length;
@@ -119,7 +140,7 @@ export function evaluateMarkdownQuality(input: QualityGateInput): QualityGateRes
 
   const noiseHits = noiseScore(markdown);
   const lowSignalNoise = noiseHits >= 2 && markdownWords < 200;
-  const blockedPage = HARD_BLOCK_PATTERNS.some((pattern) => pattern.test(markdown));
+  const blockedPage = detectBlockedPage(markdown, markdownWords);
   const d3SelectHits = (markdown.match(/d3\.select\(/gi) ?? []).length;
   const d3AttrHits = (markdown.match(/\.attr\(/gi) ?? []).length;
   const embedScriptNoise = markdownWords > 8000 && d3SelectHits >= 5 && d3AttrHits >= 15;

@@ -78,4 +78,36 @@ describe('evaluateMarkdownQuality', () => {
     expect(result.passed).toBe(false);
     expect(result.reasons).toContain('blocked_or_captcha_page');
   });
+
+  it('does not mark long normal content as blocked when warning words appear later', () => {
+    const intro = [
+      '# Building a search engine',
+      '',
+      'This is a long technical write-up that explains architecture, indexing, chunking, and ranking.',
+      'It includes implementation details, tradeoffs, and lessons learned from experimentation.',
+      'The beginning of the post is normal article content and does not represent an access challenge page.',
+    ].join('\n');
+    const filler = 'Detailed content about indexing and retrieval quality. '.repeat(140);
+    const warningMentions = [
+      '',
+      'In a later section, we discuss handling captcha systems and rate limits in crawlers.',
+      'These are normal mentions in prose, not a blocked page response.',
+    ].join('\n');
+
+    const result = evaluateMarkdownQuality({
+      markdown: `${intro}\n\n${filler}\n${warningMentions}`,
+      sourceText: `${intro} ${filler} ${warningMentions}`,
+      sourceTitle: 'Building a search engine',
+      structure: {
+        linkCount: 10,
+        listItemCount: 5,
+        codeBlockCount: 0,
+        tableCount: 0,
+      },
+    });
+
+    expect(result.reasons).not.toContain('blocked_or_captcha_page');
+    expect(result.score).toBeGreaterThan(0.6);
+    expect(result.passed).toBe(true);
+  });
 });

@@ -122,6 +122,10 @@
     linear-gradient(var(--withmd-bg-overlay), var(--withmd-bg-overlay)),
     var(--withmd-bg-image);
 }
+[data-bg-hidden="1"] .withmd-bg {
+  background-image: none;
+  background-color: var(--withmd-panel);
+}
 [data-bg="0"] { --withmd-bg-image: url('/backgrounds/background_0.webp'); }
 [data-bg="1"] { --withmd-bg-image: url('/backgrounds/background_1.webp'); }
 [data-bg="2"] { --withmd-bg-image: url('/backgrounds/background_2.webp'); }
@@ -988,7 +992,7 @@
   --withmd-drop-zone-stroke: 1px;
   margin-top: 22px;
   background: color-mix(in srgb, var(--withmd-panel) 92%, transparent);
-  min-height: 320px;
+  min-height: 300px;
   padding: 28px;
   position: relative;
   isolation: isolate;
@@ -1128,6 +1132,88 @@
   height: var(--withmd-drop-zone-stroke);
 }
 
+.withmd-landing-webtarget-form {
+  margin-top: 18px;
+  --withmd-webtarget-line: rgba(245, 245, 244, 0.36);
+}
+
+[data-theme="light"] .withmd-landing-webtarget-form {
+  --withmd-webtarget-line: rgba(28, 25, 23, 0.34);
+}
+
+.withmd-landing-webtarget-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: color-mix(in srgb, var(--withmd-panel) 92%, transparent);
+  border: 1px solid var(--withmd-webtarget-line);
+}
+
+.withmd-landing-webtarget-input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--withmd-text);
+  font-family: var(--withmd-font-sans);
+  font-size: 16px;
+  font-weight: 300;
+  line-height: 1.4;
+  padding: 4px 0 2px;
+  outline: none;
+}
+
+.withmd-landing-webtarget-input::placeholder {
+  color: var(--withmd-muted);
+}
+
+.withmd-landing-webtarget-submit {
+  width: 32px;
+  height: 32px;
+  border: 0;
+  background: transparent;
+  color: var(--withmd-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  cursor: pointer;
+  transition: color 140ms ease, background 140ms ease;
+}
+
+.withmd-landing-webtarget-submit:hover {
+  background: color-mix(in srgb, var(--withmd-glass-bg) 82%, transparent);
+}
+
+.withmd-landing-webtarget-input:not(:placeholder-shown) + .withmd-landing-webtarget-submit {
+  color: var(--withmd-text);
+}
+
+.withmd-landing-webtarget-submit:focus-visible {
+  outline: 1px solid color-mix(in srgb, var(--withmd-body) 58%, transparent);
+  outline-offset: 1px;
+}
+
+.withmd-landing-webtarget-submit svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.65;
+  stroke-linecap: square;
+  stroke-linejoin: miter;
+}
+
+.withmd-landing-webtarget-message {
+  margin: 8px 0 0;
+  font-size: 14px;
+  font-weight: 300;
+  line-height: 1.45;
+  color: color-mix(in srgb, var(--withmd-body) 86%, var(--withmd-text) 14%);
+}
+
 .withmd-landing-h2 {
   margin: 0;
   font-family: 'Garamond', 'Apple Garamond', 'Iowan Old Style', 'Times New Roman', serif;
@@ -1230,6 +1316,48 @@
 
 .withmd-landing-auth-cta {
   margin-top: 14px;
+}
+
+.withmd-landing-skill-icon-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  margin-left: 4px;
+  color: var(--withmd-body);
+  text-decoration: none;
+  vertical-align: middle;
+  cursor: pointer;
+}
+
+.withmd-landing-skill-icon-link svg {
+  width: 15px;
+  height: 15px;
+  fill: currentColor;
+  opacity: 0.88;
+}
+
+.withmd-landing-skill-icon-link:hover {
+  color: var(--withmd-text);
+}
+
+.withmd-landing-skill-icon-link:focus-visible {
+  outline: 1px solid color-mix(in srgb, var(--withmd-body) 58%, transparent);
+  outline-offset: 2px;
+}
+
+.withmd-landing-skill-copy-toast {
+  margin-left: 8px;
+  font-size: 14px;
+  color: var(--withmd-body);
+  opacity: 0;
+  transition: opacity 140ms ease;
+}
+
+.withmd-landing-skill-copy-toast.is-visible {
+  opacity: 0.88;
 }
 
 .withmd-landing-create-blank {
@@ -1428,7 +1556,7 @@
 
 @media (max-width: 980px) {
   .withmd-landing-drop-zone {
-    min-height: 260px;
+    min-height: 242px;
     padding: 16px;
   }
 
@@ -1462,6 +1590,19 @@
 
   .withmd-landing-drop-zone-plus::after {
     width: 15px;
+  }
+
+  .withmd-landing-webtarget-input-wrap {
+    padding: 7px 8px;
+  }
+
+  .withmd-landing-webtarget-input {
+    font-size: 14px;
+  }
+
+  .withmd-landing-webtarget-submit {
+    width: 28px;
+    height: 28px;
   }
 
   .withmd-landing-landscape-inline {

@@ -35,12 +35,12 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" data-theme="dark" data-bg="1" suppressHydrationWarning>
+    <html lang="en" data-theme="dark" data-bg="1" data-bg-hidden="0" suppressHydrationWarning>
       <head>
         {enablePrivateFonts ? <link rel="stylesheet" href={privateFontsStylesheetUrl} /> : null}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem('withmd-theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t);var raw=localStorage.getItem('withmd-bg');var n=raw==null?NaN:parseInt(raw,10);if(!Number.isFinite(n)||n<0||n>10){if(raw==null){n=Math.floor(Math.random()*11);try{localStorage.setItem('withmd-bg',String(n));}catch(e){}}else{n=1;}}document.documentElement.setAttribute('data-bg',String(n));}catch(e){document.documentElement.setAttribute('data-bg','1');}})()`,
+            __html: `(function(){try{var t=localStorage.getItem('withmd-theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t);var raw=localStorage.getItem('withmd-bg');var n=raw==null?NaN:parseInt(raw,10);if(!Number.isFinite(n)||n<0||n>10){if(raw==null){n=Math.floor(Math.random()*11);try{localStorage.setItem('withmd-bg',String(n));}catch(e){}}else{n=1;}}document.documentElement.setAttribute('data-bg',String(n));var hidden=localStorage.getItem('withmd-bg-hidden');document.documentElement.setAttribute('data-bg-hidden',hidden==='1'?'1':'0');}catch(e){document.documentElement.setAttribute('data-bg','1');document.documentElement.setAttribute('data-bg-hidden','0');}})()`,
           }}
         />
       </head>

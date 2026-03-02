@@ -43,6 +43,7 @@ const SYNTAX_REASON_LABELS: Record<string, string> = {
 };
 
 const BG_COUNT = 11;
+const BG_HIDDEN_STORAGE_KEY = 'withmd-bg-hidden';
 
 function modeClass(active: boolean): string {
   return active ? 'withmd-dock-btn withmd-dock-btn-active' : 'withmd-dock-btn';
@@ -61,6 +62,7 @@ function toggleTheme() {
 }
 
 function cycleBackground(): number {
+  applyBackgroundHidden(false);
   let current = 0;
   try {
     current = parseInt(localStorage.getItem('withmd-bg') ?? '0', 10) || 0;
@@ -75,6 +77,15 @@ function cycleBackground(): number {
     /* noop */
   }
   return next;
+}
+
+function applyBackgroundHidden(hidden: boolean) {
+  document.documentElement.setAttribute('data-bg-hidden', hidden ? '1' : '0');
+  try {
+    localStorage.setItem(BG_HIDDEN_STORAGE_KEY, hidden ? '1' : '0');
+  } catch (e) {
+    /* noop */
+  }
 }
 
 export default function DocumentToolbar({
@@ -104,22 +115,35 @@ export default function DocumentToolbar({
   const syntaxLabel = syntaxReasons.map((reason) => SYNTAX_REASON_LABELS[reason] ?? reason).join(', ');
   const formatToggleEnabled = userMode === 'document';
   const [shareMenuOpen, setShareMenuOpen] = useState(false);
+  const [backgroundMenuOpen, setBackgroundMenuOpen] = useState(false);
+  const [backgroundHidden, setBackgroundHidden] = useState(false);
   const shareMenuRef = useRef<HTMLDivElement | null>(null);
+  const backgroundMenuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    if (!shareMenuOpen) return;
+    setBackgroundHidden(document.documentElement.getAttribute('data-bg-hidden') === '1');
+  }, []);
+
+  useEffect(() => {
+    if (!shareMenuOpen && !backgroundMenuOpen) return;
 
     const onPointerDown = (event: PointerEvent) => {
       const target = event.target as Node | null;
       if (!target) return;
-      if (!shareMenuRef.current?.contains(target)) {
+      const inShareMenu = shareMenuRef.current?.contains(target) ?? false;
+      const inBackgroundMenu = backgroundMenuRef.current?.contains(target) ?? false;
+      if (!inShareMenu) {
         setShareMenuOpen(false);
+      }
+      if (!inBackgroundMenu) {
+        setBackgroundMenuOpen(false);
       }
     };
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         setShareMenuOpen(false);
+        setBackgroundMenuOpen(false);
       }
     };
 
@@ -129,7 +153,7 @@ export default function DocumentToolbar({
       window.removeEventListener('pointerdown', onPointerDown);
       window.removeEventListener('keydown', onKeyDown);
     };
-  }, [shareMenuOpen]);
+  }, [shareMenuOpen, backgroundMenuOpen]);
 
   useEffect(() => {
     if (!shareBusy) return;
@@ -152,6 +176,7 @@ export default function DocumentToolbar({
 
   const onCycleBackground = useCallback(() => {
     const next = cycleBackground();
+    setBackgroundHidden(false);
     if (!user?.userId) return;
     void fetch('/api/user-preferences/background', {
       method: 'POST',
@@ -161,14 +186,19 @@ export default function DocumentToolbar({
     });
   }, [user?.userId]);
 
+  const onToggleBackgroundVisibility = useCallback(() => {
+    const nextHidden = !backgroundHidden;
+    applyBackgroundHidden(nextHidden);
+    setBackgroundHidden(nextHidden);
+  }, [backgroundHidden]);
+
   return (
     <header className="withmd-dock-wrap">
       <div className="withmd-dock">
         <a href="/" className="withmd-dock-btn" aria-label="with.md home">
-          <img src="/favicon.ico" alt="with.md" className="withmd-home-icon" />
+          <img src="/with-md-logo-transparent.png" alt="with.md" className="withmd-home-icon" />
           <span className="withmd-dock-tooltip">with.md</span>
         </a>
-        <span className="withmd-dock-gap" />
         {onCreateFile && (
           <button
             type="button"
@@ -247,7 +277,13 @@ export default function DocumentToolbar({
               aria-label="Share markdown snapshot"
               aria-haspopup="menu"
               aria-expanded={shareMenuOpen}
-              onClick={() => setShareMenuOpen((open) => !open)}
+              onClick={() => {
+                setShareMenuOpen((open) => {
+                  const next = !open;
+                  if (next) setBackgroundMenuOpen(false);
+                  return next;
+                });
+              }}
               disabled={shareBusy}
             >
               <ShareIcon />
@@ -286,10 +322,51 @@ export default function DocumentToolbar({
             ) : null}
           </div>
         )}
-        <button type="button" className="withmd-dock-btn" onClick={onCycleBackground} aria-label="Change background">
-          <ImageIcon />
-          <span className="withmd-dock-tooltip">Change Background</span>
-        </button>
+        <div className="withmd-share-menu-wrap withmd-dock-share-wrap" ref={backgroundMenuRef}>
+          <button
+            type="button"
+            className={`withmd-dock-btn ${backgroundMenuOpen ? 'withmd-dock-btn-active' : ''}`}
+            onClick={() => {
+              setBackgroundMenuOpen((open) => {
+                const next = !open;
+                if (next) setShareMenuOpen(false);
+                return next;
+              });
+            }}
+            aria-label="Change background"
+            aria-haspopup="menu"
+            aria-expanded={backgroundMenuOpen}
+          >
+            <ImageIcon />
+            <span className="withmd-dock-tooltip">Change Background</span>
+          </button>
+          {backgroundMenuOpen ? (
+            <div className="withmd-share-menu withmd-dock-share-menu" role="menu" aria-label="Background options">
+              <button
+                type="button"
+                className="withmd-share-menu-item"
+                role="menuitem"
+                onClick={() => {
+                  onCycleBackground();
+                  setBackgroundMenuOpen(false);
+                }}
+              >
+                Change Landscape
+              </button>
+              <button
+                type="button"
+                className="withmd-share-menu-item"
+                role="menuitem"
+                onClick={() => {
+                  onToggleBackgroundVisibility();
+                  setBackgroundMenuOpen(false);
+                }}
+              >
+                {backgroundHidden ? 'Show Landscape' : 'Hide Landscape'}
+              </button>
+            </div>
+          ) : null}
+        </div>
         <button type="button" className="withmd-dock-btn" onClick={toggleTheme} aria-label="Toggle theme">
           <SunIcon />
           <MoonIcon />
