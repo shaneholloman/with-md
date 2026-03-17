@@ -385,6 +385,8 @@
 
 .withmd-prose {
   font-family: var(--withmd-font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   color: var(--withmd-body);
   font-size: 17px;
   line-height: 1.58;
@@ -588,6 +590,10 @@
   margin: 18px 0;
   overflow-wrap: anywhere;
   word-break: break-word;
+}
+
+[data-theme="light"] .withmd-prose > p {
+  color: #4a4642;
 }
 
 .withmd-prose li {
