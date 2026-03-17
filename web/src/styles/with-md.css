@@ -384,10 +384,11 @@
 /* Shared prose typography */
 
 .withmd-prose {
+  --withmd-prose-body-color: var(--withmd-body);
   font-family: var(--withmd-font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  color: var(--withmd-body);
+  color: var(--withmd-prose-body-color);
   font-size: 17px;
   line-height: 1.58;
   padding-top: 1rem;
@@ -592,8 +593,8 @@
   word-break: break-word;
 }
 
-[data-theme="light"] .withmd-prose > p {
-  color: #4a4642;
+[data-theme="light"] .withmd-prose {
+  --withmd-prose-body-color: #383430;
 }
 
 .withmd-prose li {
@@ -843,7 +844,7 @@
   overflow-wrap: anywhere;
   font-size: 17px;
   line-height: 1.58;
-  color: var(--withmd-body);
+  color: var(--withmd-prose-body-color, var(--withmd-body));
 }
 
 .withmd-table-block th {
