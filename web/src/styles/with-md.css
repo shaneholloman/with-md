@@ -593,6 +593,10 @@
   word-break: break-word;
 }
 
+[data-theme="dark"] .withmd-prose {
+  --withmd-prose-body-color: #aea9a5;
+}
+
 [data-theme="light"] .withmd-prose {
   --withmd-prose-body-color: #383430;
 }
