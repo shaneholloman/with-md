@@ -167,7 +167,7 @@ export default defineSchema({
     mdFileId: v.id('mdFiles'),
     createdByUserId: v.id('users'),
     createdAt: v.number(),
-    expiresAt: v.number(),
+    expiresAt: v.optional(v.number()),
     revokedAt: v.optional(v.number()),
   })
     .index('by_short_id_hash', ['shortIdHash'])

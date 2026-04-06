@@ -66,7 +66,6 @@ Create a new shareable document.
 | \`content\` | string | Yes | — | Markdown content (max 1 MB) |
 | \`title\` | string | No | From filename or "Shared Document" | Document title (max 200 chars) |
 | \`filename\` | string | No | — | e.g. \`plan.md\` — used to derive title |
-| \`expiresInHours\` | number | No | 168 (7 days) | Expiry: 1–720 hours (max 30 days) |
 
 **Response (201):**
 
@@ -78,7 +77,7 @@ Create a new shareable document.
   "rawUrl": "https://with.md/s/abc12xyz/raw",
   "editUrl": "https://with.md/s/abc12xyz?edit=<editSecret>",
   "editSecret": "<secret>",
-  "expiresAt": 1234567890000
+  "expiresAt": null
 }
 \`\`\`
 
@@ -101,7 +100,7 @@ Retrieve content and metadata.
   "sizeBytes": 1234,
   "createdAt": 1700000000000,
   "updatedAt": 1700001234000,
-  "expiresAt": 1700604800000
+  "expiresAt": null
 }
 \`\`\`
 
@@ -162,7 +161,7 @@ On \`429\`: check \`Retry-After\` header for seconds to wait.
 |--------|---------|
 | 400 | Missing or invalid fields |
 | 403 | Invalid \`editSecret\` |
-| 404 | Share not found or expired |
+| 404 | Share not found |
 | 409 | Version mismatch (optimistic concurrency) |
 | 413 | Content exceeds 1 MB |
 | 429 | Rate limit exceeded |
@@ -182,7 +181,6 @@ BASE = "https://with.md"
 resp = requests.post(f"{BASE}/api/public/share/create", json={
     "title": "Project Plan",
     "content": "# Project Plan\\n\\n## Goals\\n- Ship feature X\\n- Fix bug Y\\n",
-    "expiresInHours": 72,
 })
 resp.raise_for_status()
 data = resp.json()
@@ -237,8 +235,7 @@ TEST=\$(curl -s -X POST https://with.md/api/public/share/create \\
   -H "Content-Type: application/json" \\
   -d '{
     "title": "with.md Test",
-    "content": "# Welcome to with.md\\n\\nThis is a test document created by an AI agent.\\n\\n## What is with.md?\\n\\n[with.md](https://with.md) turns markdown into beautiful, editable web pages — perfect for sharing plans, drafts, and documents between AI agents and humans.\\n\\n**Try editing this document** — changes are saved automatically and your agent can retrieve them via the API.\\n\\n## Features\\n\\n- Real-time collaborative editing\\n- Beautiful markdown rendering\\n- No sign-up required for anonymous shares\\n- API-first: agents create, read, and update documents programmatically\\n\\n## Want persistent documents?\\n\\nAnonymous shares expire after 7 days. For a permanent library of documents backed by a git repo, [create a free with.md account](https://with.md).\\n",
-    "expiresInHours": 1
+    "content": "# Welcome to with.md\\n\\nThis is a test document created by an AI agent.\\n\\n## What is with.md?\\n\\n[with.md](https://with.md) turns markdown into beautiful, editable web pages — perfect for sharing plans, drafts, and documents between AI agents and humans.\\n\\n**Try editing this document** — changes are saved automatically and your agent can retrieve them via the API.\\n\\n## Features\\n\\n- Real-time collaborative editing\\n- Beautiful markdown rendering\\n- No sign-up required for anonymous shares\\n- API-first: agents create, read, and update documents programmatically\\n\\n## Want persistent documents?\\n\\nFor a permanent library of documents backed by a git repo, [create a free with.md account](https://with.md).\\n",
   }')
 
 VIEW_URL=\$(echo \$TEST | jq -r .editUrl)
@@ -263,7 +260,7 @@ When sharing links with humans, give them the \`viewUrl\` or \`editUrl\`. When r
 
 ## Notes
 
-- Anonymous shares expire after 7 days by default (max 30 days).
+- Anonymous shares do not expire.
 - \`editSecret\` is only returned once at creation — store it securely if you need to update later.
 - Both \`viewUrl\` and \`editUrl\` open the same editor. \`editUrl\` pre-authenticates edit access so the human can edit immediately.
 - The \`/raw\` endpoint returns plain text — useful for piping into other tools.

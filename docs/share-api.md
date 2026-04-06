@@ -22,8 +22,7 @@ Request JSON:
 {
   "content": "# Title\n\nBody",
   "title": "Optional title",
-  "filename": "optional-name.md",
-  "expiresInHours": 72
+  "filename": "optional-name.md"
 }
 ```
 
@@ -37,7 +36,7 @@ Response `201`:
   "rawUrl": "https://with.md/s/abc123xy/raw",
   "editUrl": "https://with.md/s/abc123xy?edit=...",
   "editSecret": "...",
-  "expiresAt": 1773000000000
+  "expiresAt": null
 }
 ```
 
@@ -45,6 +44,7 @@ Notes:
 
 1. `editSecret` is required for later updates.
 2. Max content size is 1 MB.
+3. Shares do not expire.
 
 ### `GET /api/public/share/:shareId`
 
@@ -63,7 +63,7 @@ Response `200`:
   "sizeBytes": 123,
   "createdAt": 1772000000000,
   "updatedAt": 1772001000000,
-  "expiresAt": 1773000000000
+  "expiresAt": null
 }
 ```
 
@@ -110,7 +110,7 @@ Response `200`:
   "version": "sha256...",
   "sizeBytes": 1024,
   "updatedAt": 1772001000000,
-  "expiresAt": 1773000000000,
+  "expiresAt": null,
   "viewUrl": "https://with.md/r/token",
   "rawUrl": "https://with.md/r/token/raw"
 }
@@ -159,7 +159,7 @@ These return plain text markdown for programmatic clients.
 
 1. `400` invalid request body or missing required fields.
 2. `403` invalid edit secret.
-3. `404` share not found or expired.
+3. `404` share not found.
 4. `409` version mismatch (`ifMatch` failed).
 5. `413` payload too large (>1 MB).
 6. `429` rate limited.

@@ -8,7 +8,6 @@
  *   title: string;        // Optional, defaults to filename or "Shared Document"
  *   content: string;      // Required, markdown content
  *   filename?: string;    // Optional, e.g., "plan.md"
- *   expiresInHours?: number; // Optional, default 168 (7 days), max 720 (30 days)
  * }
  *
  * Response (201): {
@@ -18,7 +17,7 @@
  *   rawUrl: string;       // Plain-text markdown URL
  *   editUrl: string;      // URL with edit secret for the creator
  *   editSecret: string;   // Secret token for future PUT updates
- *   expiresAt: number;    // Unix timestamp in milliseconds
+ *   expiresAt: null;      // Shares do not expire
  * }
  */
 
@@ -36,8 +35,6 @@ import {
   markdownByteLength,
   normalizeMarkdownInput,
 } from '@/lib/with-md/public-share-api';
-const DEFAULT_EXPIRY_HOURS = 7 * 24; // 7 days
-const MAX_EXPIRY_HOURS = 30 * 24; // 30 days
 
 function sanitizeFileName(input: string): string {
   const trimmed = input.trim();
@@ -120,14 +117,6 @@ export async function POST(request: NextRequest) {
     ? parsed.title.trim().slice(0, 200)
     : (titleFromFile ?? 'Shared Document');
 
-  // Calculate expiry
-  let expiresInHours = DEFAULT_EXPIRY_HOURS;
-  if (typeof parsed.expiresInHours === 'number' && Number.isFinite(parsed.expiresInHours)) {
-    expiresInHours = Math.min(Math.max(1, parsed.expiresInHours), MAX_EXPIRY_HOURS);
-  }
-  const now = Date.now();
-  const expiresAt = now + expiresInHours * 60 * 60 * 1000;
-
   const editSecret = generateEditSecret();
 
   // Try to create share with collision handling
@@ -139,14 +128,13 @@ export async function POST(request: NextRequest) {
         ok: boolean;
         shortId: string;
         createdAt: number;
-        expiresAt: number | null;
+        expiresAt?: number | null;
       }>(F.mutations.anonSharesCreate, {
         shortId: candidate,
         title,
         content: normalizedContent,
         editSecret,
         createdByIpHash: clientId, // Use clientId instead of IP for public API
-        expiresAt,
       });
       shareId = candidate;
       break;
@@ -175,7 +163,7 @@ export async function POST(request: NextRequest) {
     rawUrl,
     editUrl,
     editSecret,
-    expiresAt,
+    expiresAt: null,
   }, {
     status: 201,
     headers: {

@@ -85,7 +85,6 @@ async function getActiveShareByShortId(
     .withIndex('by_short_id', (q: any) => q.eq('shortId', shortId))
     .first();
   if (!share || share.isDeleted) return null;
-  if (typeof share.expiresAt === 'number' && share.expiresAt <= Date.now()) return null;
   return share;
 }
 

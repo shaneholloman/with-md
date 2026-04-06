@@ -10,13 +10,12 @@ interface RepoShareDoc {
   mdFileId: Id<'mdFiles'>;
   createdByUserId: Id<'users'>;
   createdAt: number;
-  expiresAt: number;
+  expiresAt?: number;
   revokedAt?: number;
 }
 
-function isActiveShare(share: RepoShareDoc, now: number): boolean {
+function isActiveShare(share: RepoShareDoc): boolean {
   if (typeof share.revokedAt === 'number') return false;
-  if (share.expiresAt <= now) return false;
   return true;
 }
 
@@ -34,8 +33,7 @@ async function getActiveShareByShortIdHash(
     .first();
   if (!share) return null;
 
-  const now = Date.now();
-  if (!isActiveShare(share as RepoShareDoc, now)) {
+  if (!isActiveShare(share as RepoShareDoc)) {
     return null;
   }
   return share as RepoShareDoc;
@@ -47,7 +45,7 @@ export const create = internalMutation({
     editSecretHash: v.string(),
     mdFileId: v.id('mdFiles'),
     createdByUserId: v.id('users'),
-    expiresAt: v.number(),
+    expiresAt: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const existing = await ctx.db

@@ -5,7 +5,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { F, mutateConvex } from '@/lib/with-md/convex-client';
 
 const MAX_UPLOAD_BYTES = 1024 * 1024;
-const DEFAULT_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
 const MAX_CREATES_PER_DAY_PER_IP = 20;
 
 function isMarkdownFileName(name: string): boolean {
@@ -79,7 +78,6 @@ export async function POST(request: NextRequest) {
   }
 
   const now = Date.now();
-  const expiresAt = now + DEFAULT_EXPIRY_MS;
   const ipHash = hashIp(readClientIp(request));
   const quota = await mutateConvex<{
     ok: boolean;
@@ -109,7 +107,6 @@ export async function POST(request: NextRequest) {
         content: normalizedContent,
         editSecret,
         createdByIpHash: ipHash,
-        expiresAt,
       });
       shareId = candidate;
       break;
@@ -134,6 +131,6 @@ export async function POST(request: NextRequest) {
     shareId,
     viewUrl,
     editUrl,
-    expiresAt,
+    expiresAt: null,
   });
 }

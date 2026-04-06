@@ -61,7 +61,7 @@ export async function GET(request: NextRequest, { params }: Params) {
 
   const shareAccess = await queryConvex<{
     mdFileId: string;
-    expiresAt: number;
+    expiresAt?: number;
   } | null>(F.queries.repoSharesResolve, {
     shortIdHash: hashRepoShareShortId(shortId),
   });
@@ -98,7 +98,7 @@ export async function GET(request: NextRequest, { params }: Params) {
       version: file.contentHash,
       sizeBytes: markdownByteLength(file.content),
       updatedAt: file.lastSyncedAt ?? null,
-      expiresAt: shareAccess.expiresAt,
+      expiresAt: shareAccess.expiresAt ?? null,
       viewUrl,
       rawUrl: `${viewUrl}/raw`,
     },

@@ -29,7 +29,7 @@ export async function GET(request: NextRequest, { params }: Params) {
   const editSecret = request.nextUrl.searchParams.get('edit')?.trim() ?? '';
   const shareAccess = await queryConvex<{
     mdFileId: string;
-    expiresAt: number;
+    expiresAt?: number;
     canEdit: boolean;
   } | null>(F.queries.repoSharesResolve, {
     shortIdHash: hashRepoShareShortId(shortId),
@@ -76,7 +76,7 @@ export async function GET(request: NextRequest, { params }: Params) {
       contentHash: file.contentHash,
       syntaxSupportStatus: file.syntaxSupportStatus ?? 'unknown',
       syntaxSupportReasons: file.syntaxSupportReasons ?? [],
-      expiresAt: shareAccess.expiresAt,
+      expiresAt: shareAccess.expiresAt ?? null,
       viewUrl,
       editUrl,
       realtimeAuthToken,

@@ -11,7 +11,6 @@ import {
   repoShareViewUrl,
 } from '@/lib/with-md/repo-share-link';
 
-const DEFAULT_REPO_SHARE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 export async function POST(request: NextRequest) {
   const session = await getSessionOrNull();
@@ -58,7 +57,6 @@ export async function POST(request: NextRequest) {
   }
 
   const createdByUserId = session.userId;
-  const expiresAt = Date.now() + DEFAULT_REPO_SHARE_TTL_MS;
   let shortId: string | null = null;
   let editSecret: string | null = null;
 
@@ -71,7 +69,6 @@ export async function POST(request: NextRequest) {
         editSecretHash: hashRepoShareEditSecret(nextEditSecret),
         mdFileId,
         createdByUserId,
-        expiresAt,
       });
       shortId = nextShortId;
       editSecret = nextEditSecret;
@@ -97,6 +94,6 @@ export async function POST(request: NextRequest) {
     ok: true,
     viewUrl,
     editUrl,
-    expiresAt,
+    expiresAt: null,
   });
 }
