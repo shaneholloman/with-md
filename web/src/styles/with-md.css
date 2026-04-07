@@ -685,12 +685,8 @@
 }
 
 .withmd-prose table {
-  width: 100%;
   border-collapse: collapse;
   margin: 24px 0;
-  display: block;
-  overflow-x: auto;
-  overflow-y: hidden;
   max-width: 100%;
 }
 
@@ -699,7 +695,8 @@
   padding: 10px 14px;
   border-bottom: 1px solid var(--withmd-border);
   text-align: left;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
+  word-break: normal;
 }
 
 .withmd-prose th {
@@ -828,16 +825,13 @@
   border: none;
   padding: 0;
   cursor: default;
+  overflow-x: auto;
 }
 
 .withmd-table-block table {
-  width: 100%;
   border-collapse: collapse;
   margin: 0;
-  display: block;
-  overflow-x: auto;
-  overflow-y: hidden;
-  max-width: 100%;
+  min-width: 100%;
 }
 
 .withmd-table-block th,
@@ -845,7 +839,9 @@
   padding: 10px 14px;
   border-bottom: 1px solid var(--withmd-border);
   text-align: left;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
+  word-break: normal;
+  min-width: 120px;
   font-size: 17px;
   line-height: 1.58;
   color: var(--withmd-prose-body-color, var(--withmd-body));

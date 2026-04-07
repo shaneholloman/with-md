@@ -1,10 +1,21 @@
 import { Extension } from '@tiptap/core';
+import Code from '@tiptap/extension-code';
 import Collaboration from '@tiptap/extension-collaboration';
 import { TaskItem, TaskList } from '@tiptap/extension-list';
 import Link from '@tiptap/extension-link';
 import Underline from '@tiptap/extension-underline';
 import { Markdown } from '@tiptap/markdown';
 import StarterKit from '@tiptap/starter-kit';
+
+/**
+ * Override Code mark to allow coexistence with bold/italic.  The default Code
+ * mark sets `excludes: '_'` (exclude ALL marks), which crashes on paste when
+ * markdown contains patterns like **`code`**.  Standard markdown renderers
+ * allow bold+code, so we match that behavior.
+ */
+const PermissiveCode = Code.extend({
+  excludes: '',
+});
 import { defaultSelectionBuilder, yCursorPlugin } from '@tiptap/y-tiptap';
 import type { Awareness } from 'y-protocols/awareness';
 import * as Y from 'yjs';
@@ -66,12 +77,15 @@ export function buildEditorExtensions(params: {
   enableRealtime: boolean;
 }) {
   // TipTap collaboration requires disabling StarterKit history plugin.
+  // Disable built-in Code mark so we can use PermissiveCode instead.
   const starterKit = StarterKit.configure({
     undoRedo: params.enableRealtime ? false : {},
+    code: false,
   });
 
   const baseCore = [
     starterKit,
+    PermissiveCode,
     Underline,
     Link.configure({
       openOnClick: false,

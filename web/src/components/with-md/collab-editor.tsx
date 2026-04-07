@@ -154,10 +154,25 @@ function stripBoundaryPlaceholderParagraphs(text: string): string {
   return lines.slice(start, end + 1).join('\n');
 }
 
+function stripEmphasisAroundCode(text: string): string {
+  // ProseMirror's code mark excludes all other marks, so bold/italic wrapping
+  // content that contains inline code crashes the schema.  Strip emphasis from
+  // any span that contains a backtick code segment.
+  // Process longest markers first (*** before ** before *) to avoid partial matches.
+  // The inner-content pattern allows any char except the marker sequence and newlines,
+  // ensuring we don't match across emphasis boundaries or lines.
+  return text
+    .replace(/\*{3}((?:[^*\n]|\*(?!\*\*))*`[^`\n]+`(?:[^*\n]|\*(?!\*\*))*)\*{3}/g, '$1')
+    .replace(/\*{2}((?:[^*\n]|\*(?!\*))*`[^`\n]+`(?:[^*\n]|\*(?!\*))*)\*{2}/g, '$1')
+    .replace(/_{3}((?:[^_\n]|_(?!__))*`[^`\n]+`(?:[^_\n]|_(?!__))*)\_{3}/g, '$1')
+    .replace(/_{2}((?:[^_\n]|_(?!_))*`[^`\n]+`(?:[^_\n]|_(?!_))*)\_{2}/g, '$1');
+}
+
 function normalizePastedMarkdown(text: string): string {
   const unwrapped = unwrapTopLevelFence(text);
   const dedented = stripAccidentalGlobalIndent(unwrapped);
-  return stripBoundaryPlaceholderParagraphs(dedented);
+  const cleaned = stripBoundaryPlaceholderParagraphs(dedented);
+  return stripEmphasisAroundCode(cleaned);
 }
 
 function findMarkedRangeInDoc(doc: ProseMirrorNode, commentMarkId: string): { from: number; to: number } | null {
@@ -679,6 +694,7 @@ export default function CollabEditor({
 
       event.preventDefault();
       event.stopPropagation();
+
       (
         editor.chain() as unknown as {
           focus: () => {
