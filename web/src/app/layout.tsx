@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
 
 import '@/app/globals.css';
+import { siteUrl } from '@/lib/with-md/site';
 
-const siteUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://with.md';
 const enablePrivateFonts = process.env.WITHMD_ENABLE_PRIVATE_FONTS === '1';
 const privateFontsStylesheetUrl = process.env.WITHMD_PRIVATE_FONTS_STYLESHEET_URL?.trim() || '/private-fonts.css';
 const siteDescription = 'Open-source filesystem-first markdown collaboration for humans and agents.';
