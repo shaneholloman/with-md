@@ -910,10 +910,12 @@
 .withmd-landing-title {
   margin: 0;
   font-family: 'Garamond', 'Apple Garamond', 'Iowan Old Style', 'Times New Roman', serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   font-size: 54px;
   font-weight: 400;
   line-height: 1;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.015em;
   color: var(--withmd-text);
 }
 
@@ -1224,6 +1226,8 @@
 .withmd-landing-h2 {
   margin: 0;
   font-family: 'Garamond', 'Apple Garamond', 'Iowan Old Style', 'Times New Roman', serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   font-size: 26px;
   font-weight: 400;
   line-height: 1.25;
