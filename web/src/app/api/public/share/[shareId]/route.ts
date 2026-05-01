@@ -196,19 +196,14 @@ export async function PUT(request: NextRequest, { params }: Params) {
 
   type UpdateResult = typeof result;
 
-  // Run Convex mutation and Hocuspocus real-time update in parallel.
-  // Hocuspocus sync is best-effort — if it fails the Convex write still succeeds.
   try {
-    [result] = await Promise.all([
-      mutateConvex<UpdateResult>(F.mutations.anonSharesUpdateViaApi, {
-        shortId,
-        editSecret: editSecret.trim(),
-        content: normalizedContent,
-        expectedContentHash,
-        ...(title !== undefined ? { title } : {}),
-      }),
-      tryHocuspocusEdit(`share:${shortId}`, editSecret.trim(), normalizedContent),
-    ]);
+    result = await mutateConvex<UpdateResult>(F.mutations.anonSharesUpdateViaApi, {
+      shortId,
+      editSecret: editSecret.trim(),
+      content: normalizedContent,
+      expectedContentHash,
+      ...(title !== undefined ? { title } : {}),
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';
     return NextResponse.json({ error: message }, { status: 500 });
@@ -239,6 +234,9 @@ export async function PUT(request: NextRequest, { params }: Params) {
     }
     return NextResponse.json({ error: 'Update failed.' }, { status: 500 });
   }
+
+  // Best-effort live update: only touch Hocuspocus after Convex accepts the write.
+  await tryHocuspocusEdit(`share:${shortId}`, editSecret.trim(), normalizedContent);
 
   const origin = request.nextUrl.origin;
   const shareUrl = `${origin}/s/${encodeURIComponent(shortId)}`;
