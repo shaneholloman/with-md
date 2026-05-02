@@ -611,6 +611,76 @@
   margin: 0;
 }
 
+.withmd-prose ul[data-type="taskList"],
+.withmd-prose ul.contains-task-list {
+  list-style: none;
+  padding-left: 0;
+}
+
+.withmd-prose li[data-type="taskItem"],
+.withmd-prose li[data-checked],
+.withmd-prose li.task-list-item {
+  list-style: none;
+}
+
+.withmd-prose li.task-list-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 0.55em;
+  align-items: flex-start;
+}
+
+.withmd-prose li[data-type="taskItem"],
+.withmd-prose li[data-checked] {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55em;
+}
+
+.withmd-prose li[data-type="taskItem"] > label,
+.withmd-prose li[data-checked] > label {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  margin-top: 0.28em;
+  line-height: 1;
+}
+
+.withmd-prose li[data-type="taskItem"] > div,
+.withmd-prose li[data-checked] > div {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.withmd-prose li[data-type="taskItem"] > div > p:first-child,
+.withmd-prose li[data-checked] > div > p:first-child,
+.withmd-prose li.task-list-item > p:first-child {
+  margin-top: 0;
+}
+
+.withmd-prose li[data-type="taskItem"] > div > p:last-child,
+.withmd-prose li[data-checked] > div > p:last-child,
+.withmd-prose li.task-list-item > p:last-child {
+  margin-bottom: 0;
+}
+
+.withmd-prose li.task-list-item > p {
+  grid-column: 2;
+  margin-top: 0;
+}
+
+.withmd-prose li.task-list-item > input[type="checkbox"] {
+  grid-column: 1;
+  margin: 0.32em 0 0;
+}
+
+.withmd-prose li[data-type="taskItem"] ul[data-type="taskList"],
+.withmd-prose li[data-checked] ul[data-type="taskList"],
+.withmd-prose li.task-list-item ul.contains-task-list {
+  grid-column: 2;
+  padding-left: 1.4em;
+}
+
 .withmd-prose strong,
 .withmd-prose b {
   color: var(--withmd-text);
