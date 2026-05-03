@@ -90,6 +90,8 @@ export default function AnonShareShell({ shareId }: Props) {
   const [userMode, setUserMode] = useState<'document' | 'source'>('document');
   const [formatBarOpen, setFormatBarOpen] = useState(false);
   const [shareMenuOpen, setShareMenuOpen] = useState(false);
+  const [editorHydrated, setEditorHydrated] = useState(false);
+  const [editorHydrationSlow, setEditorHydrationSlow] = useState(false);
   const shareMenuRef = useRef<HTMLDivElement | null>(null);
   const { ref: sourceScrollRef, scrollbarWidth: sourceScrollbarWidth } = useScrollbarWidth<HTMLPreElement>();
   const { ref: markdownScrollRef, scrollbarWidth: markdownScrollbarWidth } = useScrollbarWidth<HTMLDivElement>();
@@ -197,6 +199,25 @@ export default function AnonShareShell({ shareId }: Props) {
     if (!cleanTitle) return fallback;
     return cleanTitle.toLowerCase().endsWith('.md') ? cleanTitle : `${cleanTitle}.md`;
   }, [share?.title]);
+
+  useEffect(() => {
+    setEditorHydrated(false);
+    setEditorHydrationSlow(false);
+    if (!showEditor || showSource) return;
+
+    const timer = window.setTimeout(() => {
+      setEditorHydrationSlow(true);
+    }, 3500);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [editSecret, share?.contentHash, shareId, showEditor, showSource]);
+
+  useEffect(() => {
+    if (!editorHydrationSlow || editorHydrated || !showEditor || showSource) return;
+    setStatusMessage('Realtime editor is still connecting. Showing a read-only preview until it is ready.');
+  }, [editorHydrated, editorHydrationSlow, showEditor, showSource]);
 
   const onCopyViewLink = useCallback(async () => {
     if (!viewUrl) return;
@@ -417,31 +438,47 @@ export default function AnonShareShell({ shareId }: Props) {
 
           <div className="withmd-doc-stage withmd-fill">
             {showEditor && !showSource ? (
-              <div className="withmd-anon-editor-wrap withmd-fill">
-                <CollabEditor
-                  mdFileId={`share:${share.shortId}`}
-                  contentHash={share.contentHash}
-                  realtimeEnabled
-                  content={content}
-                  authToken={editSecret}
-                  collabUser={collabUser}
-                  comments={[]}
-                  anchorByCommentId={new Map()}
-                  activeCommentId={null}
-                  focusedComment={null}
-                  focusRequestId={0}
-                  pendingSelection={null}
-                  onContentChange={setContent}
-                  onSelectionDraftChange={() => {}}
-                  onSelectComment={() => {}}
-                  onReplyComment={async () => {}}
-                  onCreateDraftComment={async () => {}}
-                  onResolveThread={async () => {}}
-                  markRequest={null}
-                  onMarkRequestApplied={() => {}}
-                  formatBarOpen={formatBarOpen}
-                  commentsOpen={false}
-                />
+              <div className="withmd-anon-editor-wrap withmd-fill withmd-collab-hydration-wrap">
+                {!editorHydrated ? (
+                  <div className="withmd-column withmd-fill withmd-gap-2">
+                    <div
+                      ref={markdownScrollRef}
+                      className="withmd-prosemirror-wrap withmd-editor-scroll withmd-fill"
+                      style={{ '--withmd-editor-scrollbar-width': `${markdownScrollbarWidth}px` } as CSSProperties}
+                    >
+                      <article className="withmd-prose withmd-markdown withmd-anon-markdown">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{renderedReadContent}</ReactMarkdown>
+                      </article>
+                    </div>
+                  </div>
+                ) : null}
+                <div className={editorHydrated ? 'withmd-collab-editor-visible' : 'withmd-collab-editor-hidden'}>
+                  <CollabEditor
+                    mdFileId={`share:${share.shortId}`}
+                    contentHash={share.contentHash}
+                    realtimeEnabled
+                    content={content}
+                    authToken={editSecret}
+                    collabUser={collabUser}
+                    comments={[]}
+                    anchorByCommentId={new Map()}
+                    activeCommentId={null}
+                    focusedComment={null}
+                    focusRequestId={0}
+                    pendingSelection={null}
+                    onContentChange={setContent}
+                    onSelectionDraftChange={() => {}}
+                    onSelectComment={() => {}}
+                    onReplyComment={async () => {}}
+                    onCreateDraftComment={async () => {}}
+                    onResolveThread={async () => {}}
+                    markRequest={null}
+                    onMarkRequestApplied={() => {}}
+                    formatBarOpen={formatBarOpen}
+                    commentsOpen={false}
+                    onHydratedChange={setEditorHydrated}
+                  />
+                </div>
               </div>
             ) : showSource ? (
               <div className="withmd-column withmd-fill withmd-gap-2">

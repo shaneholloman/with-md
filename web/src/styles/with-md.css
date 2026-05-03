@@ -882,6 +882,24 @@
   flex: 1;
 }
 
+.withmd-collab-hydration-wrap {
+  position: relative;
+  min-height: 0;
+}
+
+.withmd-collab-editor-visible {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.withmd-collab-editor-hidden {
+  position: absolute;
+  inset: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
 /* ProseMirror-specific overrides (typography inherited from .withmd-prose) */
 
 .withmd-prosemirror-wrap .ProseMirror {
