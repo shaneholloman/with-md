@@ -26,6 +26,7 @@ const CONVEX_HTTP =
   normalizeConvexHttpUrl(process.env.NEXT_PUBLIC_CONVEX_URL);
 
 const INTERNAL_SECRET = process.env.HOCUSPOCUS_CONVEX_SECRET ?? process.env.CONVEX_HOCUSPOCUS_SECRET;
+const DISABLE_WEBSOCKET_UPGRADES = process.env.WITHMD_DISABLE_WEBSOCKET_UPGRADES === '1';
 const DEFAULT_INLINE_REALTIME_MAX_BYTES = 900 * 1024;
 const DEFAULT_CONVEX_CALL_TIMEOUT_MS = 12_000;
 const LOAD_DOCUMENT_TIMEOUT_MS = 8_000;
@@ -518,7 +519,7 @@ const server = Server.configure({
   debounce: 3000,
   maxDebounce: 10000,
 
-  async onUpgrade({ request }) {
+  async onUpgrade({ request, socket }) {
     const urlPath = (() => {
       try {
         return new URL(request.url ?? '/', `http://${request.headers.host ?? 'localhost'}`).pathname;
@@ -529,6 +530,12 @@ const server = Server.configure({
     console.info(
       `[with-md:hocuspocus] upgrade path=${urlPath} host=${request.headers.host ?? 'unknown'} upgrade=${request.headers.upgrade ?? 'missing'} key=${request.headers['sec-websocket-key'] ? 'set' : 'missing'} protocol=${request.headers['sec-websocket-protocol'] ?? 'none'}`,
     );
+
+    if (DISABLE_WEBSOCKET_UPGRADES) {
+      socket.write('HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\nContent-Type: text/plain\r\n\r\nRealtime editing is temporarily unavailable.\n');
+      socket.destroy();
+      throw undefined;
+    }
   },
 
   async onRequest({ request, response, instance }) {
