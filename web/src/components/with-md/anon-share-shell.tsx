@@ -194,9 +194,11 @@ export default function AnonShareShell({ shareId }: Props) {
     if (!viewUrl) return '';
     return `${viewUrl.replace(/\/+$/, '')}/raw`;
   }, [viewUrl]);
-  const canRealtimeEdit = canEdit && share?.syntaxSupportStatus !== 'unsupported';
+  // Anonymous edit links must remain editable even if the realtime bridge is unhealthy.
+  // Source mode saves through the public API and does not depend on Hocuspocus.
+  const canRealtimeEdit = false;
   const showEditor = Boolean(canRealtimeEdit);
-  const showSource = userMode === 'source';
+  const showSource = userMode === 'source' || (canEdit && !showEditor);
   const sourceDirty = canEdit && hasMeaningfulDiff(sourceDraft, content);
   const renderedReadContent = useMemo(() => stripLeadingFrontmatter(content), [content]);
   const downloadFileName = useMemo(() => {
