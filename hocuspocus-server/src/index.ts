@@ -667,6 +667,9 @@ const server = Server.configure({
     console.info(
       `[with-md:hocuspocus] auth doc=${documentName} ok=${result.ok ? 'true' : 'false'} reason=${result.reason ?? 'ok'}`,
     );
+    if (!result.ok) {
+      throw new Error(result.reason ?? 'forbidden');
+    }
     return result;
   },
 
