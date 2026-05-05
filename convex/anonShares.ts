@@ -345,6 +345,9 @@ export const authenticate = internalQuery({
     if (!allowed) {
       return { ok: false, reason: 'forbidden' as const };
     }
+    if (share.syntaxSupportStatus === 'unsupported') {
+      return { ok: false, reason: 'unsupported_source_only' as const };
+    }
 
     return { ok: true };
   },
