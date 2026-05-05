@@ -510,8 +510,22 @@ function toPersistNormalizationMetadata(payload: {
 
 const server = Server.configure({
   port: Number(process.env.PORT ?? 3001),
+  address: '0.0.0.0',
   debounce: 3000,
   maxDebounce: 10000,
+
+  async onUpgrade({ request }) {
+    const urlPath = (() => {
+      try {
+        return new URL(request.url ?? '/', `http://${request.headers.host ?? 'localhost'}`).pathname;
+      } catch {
+        return request.url ?? '/';
+      }
+    })();
+    console.info(
+      `[with-md:hocuspocus] upgrade path=${urlPath} host=${request.headers.host ?? 'unknown'} upgrade=${request.headers.upgrade ?? 'missing'} key=${request.headers['sec-websocket-key'] ? 'set' : 'missing'} protocol=${request.headers['sec-websocket-protocol'] ?? 'none'}`,
+    );
+  },
 
   async onRequest({ request, response, instance }) {
     const urlPath = (() => {
