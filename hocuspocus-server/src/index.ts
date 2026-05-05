@@ -55,6 +55,7 @@ const bootstrapInFlightByDoc = new Map<string, Promise<void>>();
 const loadedVersionByDoc = new Map<string, string>();
 const bootstrapMarkdownByDoc = new Map<string, string>();
 const sourceOnlyDocumentByDoc = new Map<string, string>();
+const dirtyDocumentByDoc = new Map<string, boolean>();
 
 interface LoadDocumentResponse {
   yjsStateUrl?: string | null;
@@ -375,6 +376,7 @@ function clearBootstrapState(documentName: string) {
   loadedVersionByDoc.delete(documentName);
   bootstrapMarkdownByDoc.delete(documentName);
   sourceOnlyDocumentByDoc.delete(documentName);
+  dirtyDocumentByDoc.delete(documentName);
 }
 
 function encodeUpdateSnapshot(update: Uint8Array): { base64: string; bytes: number } {
@@ -680,6 +682,7 @@ const server = Server.configure({
         if (syntaxUnsupported) {
           sourceOnlyDocumentByDoc.set(documentName, version);
           loadedVersionByDoc.set(documentName, version);
+          dirtyDocumentByDoc.set(documentName, false);
           clearDocumentState(document);
           console.info(
             `[with-md:hocuspocus] bootstrap doc=${documentName} bytes=${markdownBytes} path=unsupported_source_only syntax=${syntaxSupportStatus} version=${version} elapsedMs=${Date.now() - startedAt}`,
@@ -767,6 +770,7 @@ const server = Server.configure({
         }
 
         loadedVersionByDoc.set(documentName, version);
+        dirtyDocumentByDoc.set(documentName, false);
         const pathSuffix = localHasContent && shouldRebootstrapExisting ? '_version_drift_reload' : '';
         console.info(
           `[with-md:hocuspocus] bootstrap doc=${documentName} bytes=${markdownBytes} path=${bootstrapPath}${pathSuffix} syntax=${syntaxSupportStatus} version=${version} elapsedMs=${Date.now() - startedAt}`,
@@ -788,8 +792,13 @@ const server = Server.configure({
     }
   },
 
+  async onChange({ documentName }) {
+    dirtyDocumentByDoc.set(documentName, true);
+  },
+
   async onStoreDocument({ documentName, document }) {
     try {
+      console.info(`[with-md:hocuspocus] persist doc=${documentName} phase=start`);
       const sourceOnlyVersion = sourceOnlyDocumentByDoc.get(documentName);
       if (sourceOnlyVersion) {
         logInfoThrottled(
@@ -799,7 +808,17 @@ const server = Server.configure({
         return;
       }
 
+      if (!dirtyDocumentByDoc.get(documentName)) {
+        logInfoThrottled(
+          `persist-clean-skip:${documentName}`,
+          `[with-md:hocuspocus] persist doc=${documentName} path=clean_skip`,
+        );
+        return;
+      }
+
+      console.info(`[with-md:hocuspocus] persist doc=${documentName} phase=prepare_payload_start`);
       const payload = preparePersistPayload(documentName, document);
+      console.info(`[with-md:hocuspocus] persist doc=${documentName} phase=prepare_payload_done bytes=${payload.markdownBytes}`);
       const markdownContent = payload.markdownContent;
       const markdownBytes = payload.markdownBytes;
 
@@ -808,6 +827,7 @@ const server = Server.configure({
       if (bootstrapMd !== undefined) {
         bootstrapMarkdownByDoc.delete(documentName);
         if (markdownContent === bootstrapMd) {
+          dirtyDocumentByDoc.set(documentName, false);
           logInfoThrottled(
             `persist-bootstrap-skip:${documentName}`,
             `[with-md:hocuspocus] persist doc=${documentName} bytes=${markdownBytes} path=bootstrap_roundtrip_no_change`,
@@ -829,6 +849,7 @@ const server = Server.configure({
           `persist-oversized:${documentName}`,
           `[with-md:hocuspocus] persist doc=${documentName} bytes=${markdownBytes} path=oversized_fallback`,
         );
+        dirtyDocumentByDoc.set(documentName, false);
         return;
       }
 
@@ -843,6 +864,7 @@ const server = Server.configure({
         normalizedRepeats: normalization.repeats,
         normalizedStrippedLeadingPlaceholders: normalization.strippedLeadingPlaceholders,
       })) as PersistResponse;
+      dirtyDocumentByDoc.set(documentName, false);
       const persistPath = typeof response?.persistPath === 'string' ? response.persistPath : 'normal';
       const persistedYjsBytes = Number.isFinite(response?.yjsBytes) ? Number(response.yjsBytes) : yjsSnapshot.bytes;
       if (typeof response?.documentVersion === 'string') {
