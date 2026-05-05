@@ -22,7 +22,6 @@ import {
   normalizeMarkdownInput,
   readExpectedVersion,
   toSafeMarkdownFilename,
-  tryHocuspocusEdit,
 } from '@/lib/with-md/public-share-api';
 
 interface Params {
@@ -234,9 +233,6 @@ export async function PUT(request: NextRequest, { params }: Params) {
     }
     return NextResponse.json({ error: 'Update failed.' }, { status: 500 });
   }
-
-  // Best-effort live update: only touch Hocuspocus after Convex accepts the write.
-  await tryHocuspocusEdit(`share:${shortId}`, editSecret.trim(), normalizedContent);
 
   const origin = request.nextUrl.origin;
   const shareUrl = `${origin}/s/${encodeURIComponent(shortId)}`;
