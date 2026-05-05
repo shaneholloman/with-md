@@ -54,6 +54,7 @@ const oversizedReportByDoc = new Map<string, { bytes: number; reportedAt: number
 const bootstrapInFlightByDoc = new Map<string, Promise<void>>();
 const loadedVersionByDoc = new Map<string, string>();
 const bootstrapMarkdownByDoc = new Map<string, string>();
+const sourceOnlyDocumentByDoc = new Map<string, string>();
 
 interface LoadDocumentResponse {
   yjsStateUrl?: string | null;
@@ -373,6 +374,7 @@ function clearBootstrapState(documentName: string) {
   bootstrapInFlightByDoc.delete(documentName);
   loadedVersionByDoc.delete(documentName);
   bootstrapMarkdownByDoc.delete(documentName);
+  sourceOnlyDocumentByDoc.delete(documentName);
 }
 
 function encodeUpdateSnapshot(update: Uint8Array): { base64: string; bytes: number } {
@@ -673,6 +675,19 @@ const server = Server.configure({
         const version = typeof data.documentVersion === 'string' ? data.documentVersion : `fallback:${markdownBytes}`;
         const syntaxSupportStatus = typeof data.syntaxSupportStatus === 'string' ? data.syntaxSupportStatus : 'unknown';
         const previousVersion = loadedVersionByDoc.get(documentName);
+        const syntaxUnsupported = syntaxSupportStatus === 'unsupported';
+
+        if (syntaxUnsupported) {
+          sourceOnlyDocumentByDoc.set(documentName, version);
+          loadedVersionByDoc.set(documentName, version);
+          clearDocumentState(document);
+          console.info(
+            `[with-md:hocuspocus] bootstrap doc=${documentName} bytes=${markdownBytes} path=unsupported_source_only syntax=${syntaxSupportStatus} version=${version} elapsedMs=${Date.now() - startedAt}`,
+          );
+          return;
+        }
+        sourceOnlyDocumentByDoc.delete(documentName);
+
         const localHasContent = hasDocumentContent(document);
         const hasMatchingLoadedVersion = Boolean(localHasContent && previousVersion && previousVersion === version);
         const shouldRebootstrapExisting = Boolean(localHasContent && !hasMatchingLoadedVersion);
@@ -706,8 +721,7 @@ const server = Server.configure({
           | 'remote_state_empty_markdown'
           | 'markdown_bootstrap_failed' = 'markdown_bootstrap';
         let markdownBootstrapped = false;
-        const syntaxUnsupported = syntaxSupportStatus === 'unsupported';
-        const preferMarkdownBootstrap = syntaxUnsupported || sanitized.repeats > 1 || sanitized.strippedLeadingPlaceholders;
+        const preferMarkdownBootstrap = sanitized.repeats > 1 || sanitized.strippedLeadingPlaceholders;
         if (!preferMarkdownBootstrap && typeof data.yjsStateUrl === 'string' && data.yjsStateUrl.length > 0) {
           console.info(`[with-md:hocuspocus] bootstrap doc=${documentName} phase=remote_state_fetch_start`);
           const update = await loadYjsSnapshot(data.yjsStateUrl, documentName);
@@ -776,6 +790,15 @@ const server = Server.configure({
 
   async onStoreDocument({ documentName, document }) {
     try {
+      const sourceOnlyVersion = sourceOnlyDocumentByDoc.get(documentName);
+      if (sourceOnlyVersion) {
+        logInfoThrottled(
+          `persist-source-only-skip:${documentName}`,
+          `[with-md:hocuspocus] persist doc=${documentName} path=source_only_skip version=${sourceOnlyVersion}`,
+        );
+        return;
+      }
+
       const payload = preparePersistPayload(documentName, document);
       const markdownContent = payload.markdownContent;
       const markdownBytes = payload.markdownBytes;
