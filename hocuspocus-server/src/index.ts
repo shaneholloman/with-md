@@ -4,7 +4,7 @@ import { getSchema } from '@tiptap/core';
 import { TaskItem, TaskList } from '@tiptap/extension-list';
 import { MarkdownManager } from '@tiptap/markdown';
 import StarterKit from '@tiptap/starter-kit';
-import { prosemirrorJSONToYDoc, yDocToProsemirrorJSON } from 'y-prosemirror';
+import { prosemirrorJSONToYXmlFragment, yDocToProsemirrorJSON } from 'y-prosemirror';
 import * as Y from 'yjs';
 
 import { TableBlock } from './table-block.js';
@@ -255,10 +255,22 @@ function extractTextFromJson(node: unknown): string {
   return content.map(extractTextFromJson).join('');
 }
 
-function bootstrapFromMarkdown(ydoc: Y.Doc, markdown: string): boolean {
+function stableClientIdForBootstrap(documentName: string, markdown: string): number {
+  let hash = 0x811c9dc5;
+  const input = `${documentName}\0${markdown}`;
+  for (let index = 0; index < input.length; index += 1) {
+    hash ^= input.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0) || 1;
+}
+
+function bootstrapFromMarkdown(ydoc: Y.Doc, markdown: string, documentName = 'default'): boolean {
   try {
     const json = MARKDOWN_MANAGER.parse(markdown ?? '');
-    const seeded = prosemirrorJSONToYDoc(PM_SCHEMA, json, 'default');
+    const seeded = new Y.Doc();
+    seeded.clientID = stableClientIdForBootstrap(documentName, markdown ?? '');
+    prosemirrorJSONToYXmlFragment(PM_SCHEMA, json, seeded.getXmlFragment('default'));
     const update = Y.encodeStateAsUpdate(seeded);
     Y.applyUpdate(ydoc, update);
     seeded.destroy();
@@ -467,7 +479,7 @@ function preparePersistPayload(documentName: string, document: Y.Doc) {
 
   const repaired = new Y.Doc();
   try {
-    const repairedOk = bootstrapFromMarkdown(repaired, sanitized.content);
+    const repairedOk = bootstrapFromMarkdown(repaired, sanitized.content, documentName);
     if (!repairedOk && sanitized.content.trim().length > 0) {
       logErrorThrottled(
         `persist-normalize-failed:${documentName}`,
@@ -625,7 +637,7 @@ const server = Server.configure({
       try {
         await connection.transact((doc) => {
           clearDocumentState(doc);
-          bootstrapFromMarkdown(doc, normalizedContent);
+          bootstrapFromMarkdown(doc, normalizedContent, documentName);
         });
       } finally {
         await connection.disconnect();
@@ -761,7 +773,7 @@ const server = Server.configure({
 
         if (bootstrapPath !== 'remote_state') {
           console.info(`[with-md:hocuspocus] bootstrap doc=${documentName} phase=markdown_bootstrap_start bytes=${markdownBytes}`);
-          markdownBootstrapped = bootstrapFromMarkdown(document, markdown);
+          markdownBootstrapped = bootstrapFromMarkdown(document, markdown, documentName);
           console.info(
             `[with-md:hocuspocus] bootstrap doc=${documentName} phase=markdown_bootstrap_done ok=${markdownBootstrapped ? 'true' : 'false'} elapsedMs=${Date.now() - startedAt}`,
           );
