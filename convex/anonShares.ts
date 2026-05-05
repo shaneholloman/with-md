@@ -28,10 +28,18 @@ async function hashEditSecret(secret: string): Promise<string> {
 }
 
 async function canEditShare(share: AnonShareDoc, editSecret: string): Promise<boolean> {
-  if (!editSecret) return false;
-  if (!share.editSecretHash) return false;
-  const incomingHash = await hashEditSecret(editSecret);
-  return incomingHash === share.editSecretHash;
+  const normalizedSecret = editSecret.trim();
+  if (!normalizedSecret) return false;
+
+  if (share.editSecretHash) {
+    const incomingHash = await hashEditSecret(normalizedSecret);
+    if (incomingHash === share.editSecretHash) return true;
+  }
+
+  // Legacy anonymous shares stored the edit secret directly before hashing was added.
+  // Keep those edit URLs usable; new shares only write editSecretHash.
+  const legacySecret = typeof share.editSecret === 'string' ? share.editSecret.trim() : '';
+  return legacySecret.length > 0 && legacySecret === normalizedSecret;
 }
 
 function parseShareDocumentName(documentName: string): string | null {

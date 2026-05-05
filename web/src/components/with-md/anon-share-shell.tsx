@@ -9,8 +9,10 @@ import remarkGfm from 'remark-gfm';
 
 import CollabEditor from '@/components/with-md/collab-editor';
 import NoticeStack from '@/components/with-md/notice-stack';
+import SourceEditor from '@/components/with-md/source-editor';
 import { useScrollbarWidth } from '@/hooks/with-md/use-scrollbar-width';
 import { cursorColorForUser } from '@/lib/with-md/cursor-colors';
+import { hasMeaningfulDiff } from '@/lib/with-md/markdown-diff';
 
 interface SharePayload {
   shortId: string;
@@ -84,6 +86,7 @@ export default function AnonShareShell({ shareId }: Props) {
   const [share, setShare] = useState<SharePayload | null>(null);
   const [canEdit, setCanEdit] = useState(false);
   const [content, setContent] = useState('');
+  const [sourceDraft, setSourceDraft] = useState('');
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [statusNoticeClosed, setStatusNoticeClosed] = useState(false);
   const [anonName, setAnonName] = useState('anon-user');
@@ -93,6 +96,7 @@ export default function AnonShareShell({ shareId }: Props) {
   const [editorHydrated, setEditorHydrated] = useState(false);
   const [editorHydrationSlow, setEditorHydrationSlow] = useState(false);
   const shareMenuRef = useRef<HTMLDivElement | null>(null);
+  const lastSourceSaveRef = useRef('');
   const { ref: sourceScrollRef, scrollbarWidth: sourceScrollbarWidth } = useScrollbarWidth<HTMLPreElement>();
   const { ref: markdownScrollRef, scrollbarWidth: markdownScrollbarWidth } = useScrollbarWidth<HTMLDivElement>();
 
@@ -132,12 +136,15 @@ export default function AnonShareShell({ shareId }: Props) {
           setError(data?.error ?? 'Share not found.');
           setShare(null);
           setContent('');
+          setSourceDraft('');
           setCanEdit(false);
           return;
         }
 
         setShare(data.share);
         setContent(data.share.content);
+        setSourceDraft(data.share.content);
+        lastSourceSaveRef.current = data.share.content;
         const editable = Boolean(data.canEdit);
         setCanEdit(editable);
 
@@ -190,6 +197,7 @@ export default function AnonShareShell({ shareId }: Props) {
   const canRealtimeEdit = canEdit && share?.syntaxSupportStatus !== 'unsupported';
   const showEditor = Boolean(canRealtimeEdit);
   const showSource = userMode === 'source';
+  const sourceDirty = canEdit && hasMeaningfulDiff(sourceDraft, content);
   const renderedReadContent = useMemo(() => stripLeadingFrontmatter(content), [content]);
   const downloadFileName = useMemo(() => {
     const fallback = 'shared-markdown.md';
@@ -278,6 +286,68 @@ export default function AnonShareShell({ shareId }: Props) {
     () => ({ name: anonName, color: cursorColorForUser(anonName) }),
     [anonName],
   );
+
+  const onEditorContentChange = useCallback((nextContent: string) => {
+    setContent(nextContent);
+    setSourceDraft(nextContent);
+  }, []);
+
+  const saveSourceDraft = useCallback(async (nextContent: string) => {
+    if (!canEdit || !editSecret || !share) return;
+    const normalizedContent = nextContent.replace(/\r\n/g, '\n');
+    if (!hasMeaningfulDiff(normalizedContent, content)) return;
+    if (lastSourceSaveRef.current === normalizedContent) return;
+
+    try {
+      const response = await fetch(`/api/public/share/${encodeURIComponent(shareId)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          editSecret,
+          content: normalizedContent,
+          ifMatch: share.contentHash,
+        }),
+      });
+      const data = (await response.json().catch(() => null)) as
+        | {
+          error?: string;
+          version?: string;
+          sizeBytes?: number;
+          updatedAt?: number;
+        }
+        | null;
+
+      if (!response.ok) {
+        throw new Error(data?.error ?? 'Could not save source changes.');
+      }
+
+      lastSourceSaveRef.current = normalizedContent;
+      setContent(normalizedContent);
+      setSourceDraft(normalizedContent);
+      setShare((prev) => prev
+        ? {
+          ...prev,
+          content: normalizedContent,
+          contentHash: data?.version ?? prev.contentHash,
+          sizeBytes: data?.sizeBytes ?? prev.sizeBytes,
+          updatedAt: data?.updatedAt ?? Date.now(),
+        }
+        : prev);
+      setStatusMessage('Source changes saved.');
+    } catch (saveError) {
+      setStatusMessage(saveError instanceof Error ? saveError.message : 'Could not save source changes.');
+    }
+  }, [canEdit, content, editSecret, share, shareId]);
+
+  useEffect(() => {
+    if (!showSource || !sourceDirty) return;
+    const timer = window.setTimeout(() => {
+      void saveSourceDraft(sourceDraft);
+    }, 1200);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [saveSourceDraft, showSource, sourceDirty, sourceDraft]);
 
   useEffect(() => {
     if (!shareMenuOpen) return;
@@ -466,7 +536,7 @@ export default function AnonShareShell({ shareId }: Props) {
                     focusedComment={null}
                     focusRequestId={0}
                     pendingSelection={null}
-                    onContentChange={setContent}
+                    onContentChange={onEditorContentChange}
                     onSelectionDraftChange={() => {}}
                     onSelectComment={() => {}}
                     onReplyComment={async () => {}}
@@ -483,13 +553,20 @@ export default function AnonShareShell({ shareId }: Props) {
             ) : showSource ? (
               <div className="withmd-column withmd-fill withmd-gap-2">
                 <div className="withmd-editor-shell withmd-column withmd-fill">
-                  <pre
-                    ref={sourceScrollRef}
-                    className="withmd-source-readonly withmd-editor-scroll withmd-fill"
-                    style={{ '--withmd-editor-scrollbar-width': `${sourceScrollbarWidth}px` } as CSSProperties}
-                  >
-                    {content}
-                  </pre>
+                  {canEdit ? (
+                    <SourceEditor
+                      value={sourceDraft}
+                      onChange={setSourceDraft}
+                    />
+                  ) : (
+                    <pre
+                      ref={sourceScrollRef}
+                      className="withmd-source-readonly withmd-editor-scroll withmd-fill"
+                      style={{ '--withmd-editor-scrollbar-width': `${sourceScrollbarWidth}px` } as CSSProperties}
+                    >
+                      {content}
+                    </pre>
+                  )}
                 </div>
               </div>
             ) : (

@@ -27,6 +27,17 @@ const CONVEX_HTTP =
 
 const INTERNAL_SECRET = process.env.HOCUSPOCUS_CONVEX_SECRET ?? process.env.CONVEX_HOCUSPOCUS_SECRET;
 const DEFAULT_INLINE_REALTIME_MAX_BYTES = 900 * 1024;
+const DEFAULT_CONVEX_CALL_TIMEOUT_MS = 12_000;
+const LOAD_DOCUMENT_TIMEOUT_MS = 8_000;
+const SNAPSHOT_FETCH_TIMEOUT_MS = 8_000;
+const DEFAULT_REMOTE_SNAPSHOT_MAX_BYTES = 2 * 1024 * 1024;
+const REMOTE_SNAPSHOT_MAX_BYTES = (() => {
+  const raw = process.env.WITHMD_REMOTE_SNAPSHOT_MAX_BYTES;
+  if (!raw) return DEFAULT_REMOTE_SNAPSHOT_MAX_BYTES;
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) return DEFAULT_REMOTE_SNAPSHOT_MAX_BYTES;
+  return parsed;
+})();
 const INLINE_REALTIME_MAX_BYTES = (() => {
   const raw = process.env.WITHMD_INLINE_REALTIME_MAX_BYTES;
   if (!raw) return DEFAULT_INLINE_REALTIME_MAX_BYTES;
@@ -48,6 +59,7 @@ interface LoadDocumentResponse {
   yjsStateUrl?: string | null;
   markdownContent?: string | null;
   documentVersion?: string | null;
+  syntaxSupportStatus?: string | null;
 }
 
 interface PersistResponse {
@@ -69,7 +81,7 @@ if (!CONVEX_HTTP || !INTERNAL_SECRET) {
   );
 }
 
-async function convexCall(path: string, body: unknown) {
+async function convexCall(path: string, body: unknown, timeoutMs = DEFAULT_CONVEX_CALL_TIMEOUT_MS) {
   if (!CONVEX_HTTP || !INTERNAL_SECRET) {
     throw new Error('Convex endpoint env vars are not configured');
   }
@@ -81,6 +93,7 @@ async function convexCall(path: string, body: unknown) {
       Authorization: `Bearer ${INTERNAL_SECRET}`,
     },
     body: JSON.stringify(body),
+    signal: AbortSignal.timeout(timeoutMs),
   });
 
   if (!response.ok) {
@@ -388,11 +401,21 @@ function updateHasDocumentContent(update: Uint8Array): boolean {
 
 async function loadYjsSnapshot(url: string, documentName: string): Promise<Uint8Array | null> {
   try {
-    const response = await fetch(url);
+    const response = await fetch(url, { signal: AbortSignal.timeout(SNAPSHOT_FETCH_TIMEOUT_MS) });
     if (!response.ok) {
       throw new Error(`snapshot fetch failed with ${response.status}`);
     }
-    return new Uint8Array(await response.arrayBuffer());
+    const contentLength = response.headers.get('content-length');
+    const declaredBytes = contentLength ? Number.parseInt(contentLength, 10) : 0;
+    if (Number.isFinite(declaredBytes) && declaredBytes > REMOTE_SNAPSHOT_MAX_BYTES) {
+      throw new Error(`snapshot too large: ${declaredBytes} bytes`);
+    }
+
+    const update = new Uint8Array(await response.arrayBuffer());
+    if (update.byteLength > REMOTE_SNAPSHOT_MAX_BYTES) {
+      throw new Error(`snapshot too large: ${update.byteLength} bytes`);
+    }
+    return update;
   } catch (error) {
     logErrorThrottled(
       `bootstrap-remote-state-error:${documentName}`,
@@ -499,7 +522,26 @@ const server = Server.configure({
       }
     })();
 
+    const finishRequest = (): never => {
+      throw undefined;
+    };
+
+    if ((request.method === 'GET' || request.method === 'HEAD') && (urlPath === '/' || urlPath === '/healthz')) {
+      if (!response.headersSent) {
+        response.writeHead(200, { 'Content-Type': 'text/plain' });
+        response.end('OK');
+      }
+      finishRequest();
+    }
+
     if (request.method !== 'POST' || urlPath !== '/api/agent/edit') {
+      if (urlPath.startsWith('/api/')) {
+        if (!response.headersSent) {
+          response.writeHead(404, { 'Content-Type': 'application/json' });
+          response.end(JSON.stringify({ ok: false, error: 'Not found' }));
+        }
+        finishRequest();
+      }
       return;
     }
 
@@ -510,30 +552,31 @@ const server = Server.configure({
       }
     };
 
-    let body: Record<string, unknown>;
+    let body: Record<string, unknown> = {};
     try {
       const raw = await readBody(request);
       body = JSON.parse(raw) as Record<string, unknown>;
     } catch (err) {
       if (err instanceof Error && (err as NodeJS.ErrnoException).code === 'PAYLOAD_TOO_LARGE') {
         sendJson(413, { ok: false, error: `Payload too large. Maximum body size is ${MAX_REQUEST_BODY_BYTES / 1024}KB.` });
-        throw undefined;
+        finishRequest();
       }
       sendJson(400, { ok: false, error: 'Invalid JSON body' });
-      throw undefined;
+      finishRequest();
     }
 
     const documentName = typeof body.documentName === 'string' ? body.documentName.trim() : '';
     const editSecret = typeof body.editSecret === 'string' ? body.editSecret.trim() : '';
-    const content = typeof body.content === 'string' ? body.content : null;
+    const hasContent = typeof body.content === 'string';
+    const content = hasContent ? body.content as string : '';
 
-    if (!documentName || !editSecret || content === null) {
+    if (!documentName || !editSecret || !hasContent) {
       sendJson(400, { ok: false, error: 'Missing documentName, editSecret, or content' });
-      throw undefined;
+      finishRequest();
     }
 
     // Validate edit permission via Convex
-    let authResult: { ok?: boolean; reason?: string };
+    let authResult: { ok?: boolean; reason?: string } = { ok: false };
     try {
       authResult = (await convexCall('/api/collab/authenticate', {
         userToken: editSecret,
@@ -541,13 +584,13 @@ const server = Server.configure({
       })) as { ok?: boolean; reason?: string };
     } catch {
       sendJson(503, { ok: false, error: 'Auth service unavailable' });
-      throw undefined;
+      finishRequest();
     }
 
     if (!authResult.ok) {
       const status = authResult.reason === 'missing' ? 404 : 403;
       sendJson(status, { ok: false, error: authResult.reason ?? 'forbidden' });
-      throw undefined;
+      finishRequest();
     }
 
     // Apply the edit via direct server-side connection (no WebSocket needed)
@@ -569,13 +612,13 @@ const server = Server.configure({
         err,
       );
       sendJson(500, { ok: false, error: 'Failed to apply edit' });
-      throw undefined;
+      finishRequest();
     }
 
     const bytes = markdownByteLength(normalizedContent);
     console.info(`[with-md:hocuspocus] agent-edit doc=${documentName} bytes=${bytes}`);
     sendJson(200, { ok: true, documentName, bytes });
-    throw undefined;
+    finishRequest();
   },
 
   async onAuthenticate({ token, documentName }) {
@@ -599,16 +642,22 @@ const server = Server.configure({
     }
 
     const bootstrapTask = (async () => {
+      const startedAt = Date.now();
       try {
+        console.info(`[with-md:hocuspocus] bootstrap doc=${documentName} phase=loadDocument_start`);
         const data = (await convexCall('/api/collab/loadDocument', {
           mdFileId: documentName,
-        })) as LoadDocumentResponse;
+        }, LOAD_DOCUMENT_TIMEOUT_MS)) as LoadDocumentResponse;
+        console.info(
+          `[with-md:hocuspocus] bootstrap doc=${documentName} phase=loadDocument_done elapsedMs=${Date.now() - startedAt}`,
+        );
 
         const rawMarkdown = typeof data.markdownContent === 'string' ? data.markdownContent : '';
         const sanitized = sanitizeRealtimeMarkdown(rawMarkdown);
         const markdown = sanitized.content;
         const markdownBytes = markdownByteLength(markdown);
         const version = typeof data.documentVersion === 'string' ? data.documentVersion : `fallback:${markdownBytes}`;
+        const syntaxSupportStatus = typeof data.syntaxSupportStatus === 'string' ? data.syntaxSupportStatus : 'unknown';
         const previousVersion = loadedVersionByDoc.get(documentName);
         const localHasContent = hasDocumentContent(document);
         const hasMatchingLoadedVersion = Boolean(localHasContent && previousVersion && previousVersion === version);
@@ -637,16 +686,26 @@ const server = Server.configure({
         let bootstrapPath:
           | 'remote_state'
           | 'remote_state_ignored_normalized_markdown'
+          | 'remote_state_ignored_unsupported_markdown'
           | 'markdown_bootstrap'
           | 'remote_state_unavailable_markdown'
           | 'remote_state_empty_markdown'
           | 'markdown_bootstrap_failed' = 'markdown_bootstrap';
         let markdownBootstrapped = false;
-        const preferMarkdownBootstrap = sanitized.repeats > 1 || sanitized.strippedLeadingPlaceholders;
+        const syntaxUnsupported = syntaxSupportStatus === 'unsupported';
+        const preferMarkdownBootstrap = syntaxUnsupported || sanitized.repeats > 1 || sanitized.strippedLeadingPlaceholders;
         if (!preferMarkdownBootstrap && typeof data.yjsStateUrl === 'string' && data.yjsStateUrl.length > 0) {
+          console.info(`[with-md:hocuspocus] bootstrap doc=${documentName} phase=remote_state_fetch_start`);
           const update = await loadYjsSnapshot(data.yjsStateUrl, documentName);
+          console.info(
+            `[with-md:hocuspocus] bootstrap doc=${documentName} phase=remote_state_fetch_done bytes=${update?.byteLength ?? 0} elapsedMs=${Date.now() - startedAt}`,
+          );
           if (update && update.byteLength > 0) {
+            console.info(`[with-md:hocuspocus] bootstrap doc=${documentName} phase=remote_state_probe_start bytes=${update.byteLength}`);
             const remoteHasContent = updateHasDocumentContent(update);
+            console.info(
+              `[with-md:hocuspocus] bootstrap doc=${documentName} phase=remote_state_probe_done hasContent=${remoteHasContent ? 'true' : 'false'} elapsedMs=${Date.now() - startedAt}`,
+            );
             if (remoteHasContent || markdownBytes === 0) {
               Y.applyUpdate(document, update);
               bootstrapPath = 'remote_state';
@@ -657,11 +716,17 @@ const server = Server.configure({
             bootstrapPath = 'remote_state_unavailable_markdown';
           }
         } else if (preferMarkdownBootstrap && typeof data.yjsStateUrl === 'string' && data.yjsStateUrl.length > 0) {
-          bootstrapPath = 'remote_state_ignored_normalized_markdown';
+          bootstrapPath = syntaxUnsupported
+            ? 'remote_state_ignored_unsupported_markdown'
+            : 'remote_state_ignored_normalized_markdown';
         }
 
         if (bootstrapPath !== 'remote_state') {
+          console.info(`[with-md:hocuspocus] bootstrap doc=${documentName} phase=markdown_bootstrap_start bytes=${markdownBytes}`);
           markdownBootstrapped = bootstrapFromMarkdown(document, markdown);
+          console.info(
+            `[with-md:hocuspocus] bootstrap doc=${documentName} phase=markdown_bootstrap_done ok=${markdownBootstrapped ? 'true' : 'false'} elapsedMs=${Date.now() - startedAt}`,
+          );
           if (!markdownBootstrapped && markdownBytes > 0) {
             bootstrapPath = 'markdown_bootstrap_failed';
           }
@@ -676,7 +741,7 @@ const server = Server.configure({
         loadedVersionByDoc.set(documentName, version);
         const pathSuffix = localHasContent && shouldRebootstrapExisting ? '_version_drift_reload' : '';
         console.info(
-          `[with-md:hocuspocus] bootstrap doc=${documentName} bytes=${markdownBytes} path=${bootstrapPath}${pathSuffix} version=${version}`,
+          `[with-md:hocuspocus] bootstrap doc=${documentName} bytes=${markdownBytes} path=${bootstrapPath}${pathSuffix} syntax=${syntaxSupportStatus} version=${version} elapsedMs=${Date.now() - startedAt}`,
         );
       } catch (error) {
         logErrorThrottled(
