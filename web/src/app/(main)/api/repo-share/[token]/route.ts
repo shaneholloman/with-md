@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 import { F, queryConvex } from '@/lib/with-md/convex-client';
+import { detectUnsupportedSyntax } from '@/lib/with-md/syntax';
 import {
   buildRepoShareRealtimeAuthToken,
   hashRepoShareEditSecret,
@@ -62,6 +63,7 @@ export async function GET(request: NextRequest, { params }: Params) {
   const realtimeAuthToken = shareAccess.canEdit
     ? buildRepoShareRealtimeAuthToken(shortId, editSecret)
     : '';
+  const syntax = detectUnsupportedSyntax(file.content);
 
   return NextResponse.json({
     ok: true,
@@ -74,8 +76,8 @@ export async function GET(request: NextRequest, { params }: Params) {
       title: titleFromPath(file.path),
       content: file.content,
       contentHash: file.contentHash,
-      syntaxSupportStatus: file.syntaxSupportStatus ?? 'unknown',
-      syntaxSupportReasons: file.syntaxSupportReasons ?? [],
+      syntaxSupportStatus: syntax.supported ? 'supported' : 'unsupported',
+      syntaxSupportReasons: syntax.reasons,
       expiresAt: shareAccess.expiresAt ?? null,
       viewUrl,
       editUrl,

@@ -299,14 +299,15 @@ export const getPublic = internalQuery({
   handler: async (ctx, args) => {
     const share = await getActiveShareByShortId(ctx, args.shortId);
     if (!share) return null;
+    const syntax = detectUnsupportedSyntax(share.content);
     return {
       shortId: share.shortId,
       title: share.title,
       content: share.content,
       contentHash: share.contentHash,
       sizeBytes: share.sizeBytes,
-      syntaxSupportStatus: share.syntaxSupportStatus ?? 'unknown',
-      syntaxSupportReasons: share.syntaxSupportReasons ?? [],
+      syntaxSupportStatus: syntax.supported ? 'supported' : 'unsupported',
+      syntaxSupportReasons: syntax.reasons,
       createdAt: share.createdAt,
       updatedAt: share.updatedAt,
       expiresAt: share.expiresAt ?? null,
@@ -345,7 +346,8 @@ export const authenticate = internalQuery({
     if (!allowed) {
       return { ok: false, reason: 'forbidden' as const };
     }
-    if (share.syntaxSupportStatus === 'unsupported') {
+    const syntax = detectUnsupportedSyntax(share.content);
+    if (!syntax.supported) {
       return { ok: false, reason: 'unsupported_source_only' as const };
     }
 
@@ -383,12 +385,13 @@ export const loadDocument = internalQuery({
     const yjsStateUrl = share.yjsStateStorageId
       ? await ctx.storage.getUrl(share.yjsStateStorageId)
       : null;
+    const syntax = detectUnsupportedSyntax(share.content);
 
     return {
       yjsStateUrl,
       yjsStateStorageId: share.yjsStateStorageId ?? null,
       markdownContent: share.content,
-      syntaxSupportStatus: share.syntaxSupportStatus ?? 'unknown',
+      syntaxSupportStatus: syntax.supported ? 'supported' : 'unsupported',
       documentVersion: buildDocumentVersion(share.contentHash, share.yjsStateStorageId),
     };
   },

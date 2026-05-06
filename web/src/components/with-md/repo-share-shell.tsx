@@ -147,10 +147,11 @@ export default function RepoShareShell({ token }: Props) {
 
         if (data.canEdit && data.share.syntaxSupportStatus === 'unsupported') {
           const reasons = (data.share.syntaxSupportReasons ?? []).join(', ');
+          setUserMode('source');
           setStatusMessage(
             reasons
-              ? `This markdown uses unsupported syntax for realtime rich editing (${reasons}). Opened in read mode.`
-              : 'This markdown uses unsupported syntax for realtime rich editing. Opened in read mode.',
+              ? `This markdown uses unsupported syntax for realtime rich editing (${reasons}). Opened in Source mode.`
+              : 'This markdown uses unsupported syntax for realtime rich editing. Opened in Source mode.',
           );
         }
       } catch (loadError) {

@@ -16,6 +16,23 @@ describe('detectUnsupportedSyntax', () => {
     expect(result.reasons).toHaveLength(0);
   });
 
+  it('accepts prose placeholders and brace examples', () => {
+    const md = [
+      '# Logs',
+      '',
+      '| Result | Notes |',
+      '|---|---|',
+      '| 5000+ records in <1 min | customer-visible traffic |',
+      '',
+      '- Customer override can mention <date> in prose.',
+      '- Conversation events use conversation.message.{started,delta,completed}.',
+      '- Idempotency key shape is `{provider}:obs:{log_id}`.',
+    ].join('\n');
+    const result = detectUnsupportedSyntax(md);
+    expect(result.supported).toBe(true);
+    expect(result.reasons).toHaveLength(0);
+  });
+
   it('accepts code blocks containing jsx-like text', () => {
     const md = `\`\`\`md\n<MyComponent prop={value} />\n\`\`\`\n\nregular text`;
     const result = detectUnsupportedSyntax(md);

@@ -424,12 +424,13 @@ export const loadDocument = internalQuery({
     const yjsStateUrl = file.yjsStateStorageId
       ? await ctx.storage.getUrl(file.yjsStateStorageId)
       : null;
+    const syntax = detectUnsupportedSyntax(file.content);
 
     return {
       yjsStateUrl,
       yjsStateStorageId: file.yjsStateStorageId ?? null,
       markdownContent: file.content,
-      syntaxSupportStatus: file.syntaxSupportStatus ?? 'unknown',
+      syntaxSupportStatus: syntax.supported ? 'supported' : 'unsupported',
       documentVersion: `${file.contentHash}:${file.yjsStateStorageId ?? 'none'}`,
     };
   },
