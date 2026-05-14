@@ -9,6 +9,7 @@ import remarkGfm from 'remark-gfm';
 
 import CollabEditor from '@/components/with-md/collab-editor';
 import NoticeStack from '@/components/with-md/notice-stack';
+import { proseMarkdownComponents } from '@/components/with-md/prose-markdown-components';
 import SourceEditor from '@/components/with-md/source-editor';
 import { useScrollbarWidth } from '@/hooks/with-md/use-scrollbar-width';
 import { cursorColorForUser } from '@/lib/with-md/cursor-colors';
@@ -518,7 +519,7 @@ export default function AnonShareShell({ shareId }: Props) {
                       style={{ '--withmd-editor-scrollbar-width': `${markdownScrollbarWidth}px` } as CSSProperties}
                     >
                       <article className="withmd-prose withmd-markdown withmd-anon-markdown">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{renderedReadContent}</ReactMarkdown>
+                        <ReactMarkdown remarkPlugins={[remarkGfm]} components={proseMarkdownComponents}>{renderedReadContent}</ReactMarkdown>
                       </article>
                     </div>
                   </div>
@@ -579,7 +580,7 @@ export default function AnonShareShell({ shareId }: Props) {
                     style={{ '--withmd-editor-scrollbar-width': `${markdownScrollbarWidth}px` } as CSSProperties}
                   >
                     <article className="withmd-prose withmd-markdown withmd-anon-markdown">
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{renderedReadContent}</ReactMarkdown>
+                      <ReactMarkdown remarkPlugins={[remarkGfm]} components={proseMarkdownComponents}>{renderedReadContent}</ReactMarkdown>
                     </article>
                   </div>
                 </div>
