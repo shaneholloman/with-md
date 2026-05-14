@@ -8,6 +8,7 @@ import remarkGfm from 'remark-gfm';
 
 import NoticeStack from '@/components/with-md/notice-stack';
 import type { Notice } from '@/components/with-md/notice-stack';
+import { proseMarkdownComponents } from '@/components/with-md/prose-markdown-components';
 import { useScrollbarWidth } from '@/hooks/with-md/use-scrollbar-width';
 
 interface Props {
@@ -330,7 +331,7 @@ export default function WebPageShell({ targetUrl, initialMode, initialTrigger }:
                     style={{ '--withmd-editor-scrollbar-width': `${markdownScrollbarWidth}px` } as CSSProperties}
                   >
                     <article className={`withmd-prose withmd-markdown withmd-anon-markdown${hideImages ? ' withmd-hide-images' : ''}`}>
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{markdown}</ReactMarkdown>
+                      <ReactMarkdown remarkPlugins={[remarkGfm]} components={proseMarkdownComponents}>{markdown}</ReactMarkdown>
                     </article>
                   </div>
                 </div>

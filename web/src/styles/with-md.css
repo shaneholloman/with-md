@@ -727,7 +727,8 @@
   color: var(--withmd-text);
 }
 
-.withmd-prose pre {
+.withmd-prose pre,
+.ProseMirror.withmd-prose pre {
   border: 0;
   border-radius: 0;
   background: var(--withmd-code-block-bg);
@@ -737,6 +738,8 @@
   overflow-y: hidden;
   max-width: 100%;
   white-space: pre;
+  overflow-wrap: normal;
+  word-break: normal;
 }
 
 .withmd-prose pre code {
@@ -757,7 +760,16 @@
 .withmd-prose table {
   border-collapse: collapse;
   margin: 24px 0;
-  max-width: 100%;
+  min-width: 100%;
+}
+
+.withmd-prose-table-scroll {
+  margin: 24px 0;
+  overflow-x: auto;
+}
+
+.withmd-prose-table-scroll table {
+  margin: 0;
 }
 
 .withmd-prose th,
@@ -873,6 +885,7 @@
   border: 0;
   border-radius: 0;
   background: transparent;
+  min-width: 0;
 }
 
 .withmd-editor-shell {
@@ -3171,6 +3184,12 @@
   padding: 34px 48px 18px;
   background: var(--withmd-panel);
   overflow: visible;
+}
+
+.withmd-doc-panel .withmd-column,
+.withmd-doc-panel .withmd-fill,
+.withmd-doc-panel .withmd-editor-shell {
+  min-width: 0;
 }
 
 .withmd-diff-viewer {
