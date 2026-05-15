@@ -21,6 +21,7 @@ import type { Awareness } from 'y-protocols/awareness';
 import * as Y from 'yjs';
 
 import { CommentMark } from '@/components/with-md/tiptap/comment-mark';
+import { MermaidBlock } from '@/components/with-md/tiptap/mermaid-block';
 import { TableBlock } from '@/components/with-md/tiptap/table-block';
 
 /**
@@ -84,6 +85,9 @@ export function buildEditorExtensions(params: {
   });
 
   const baseCore = [
+    // MermaidBlock must register before StarterKit so its parseMarkdown for the
+    // shared `code` token runs first and claims ```mermaid fences.
+    MermaidBlock,
     starterKit,
     PermissiveCode,
     Underline,

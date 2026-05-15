@@ -984,6 +984,63 @@
   tab-size: 4;
 }
 
+.withmd-mermaid-block {
+  margin: 24px 0;
+  padding: 24px;
+  border-radius: 12px;
+  background: var(--withmd-code-block-bg, #f8f8f7);
+  cursor: default;
+  overflow-x: auto;
+  display: flex;
+  justify-content: center;
+}
+
+.withmd-mermaid-block.ProseMirror-selectednode,
+.withmd-mermaid-block.is-editing {
+  outline: 1px solid var(--withmd-primary-border);
+  outline-offset: -1px;
+}
+
+.withmd-mermaid-svg {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.withmd-mermaid-svg svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.withmd-mermaid-error {
+  color: var(--withmd-text);
+  background: transparent;
+  font-family: var(--withmd-font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0;
+}
+
+.withmd-mermaid-editor {
+  display: block;
+  width: 100%;
+  min-height: 120px;
+  border: 0;
+  background: transparent;
+  color: var(--withmd-text);
+  padding: 0;
+  font-family: var(--withmd-font-mono);
+  font-size: 13px;
+  line-height: 1.5;
+  resize: vertical;
+  outline: none;
+  white-space: pre;
+  overflow-x: auto;
+  tab-size: 2;
+}
+
 .withmd-landing {
   --withmd-landing-drop-frame-inset: 72px;
   --withmd-landing-doc-max-width: 780px;
