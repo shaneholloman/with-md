@@ -23,8 +23,8 @@ export const MermaidBlock = Node.create({
   },
 
   parseMarkdown(token, helpers) {
-    if (token.type !== 'code') return null;
-    if ((token.lang || '').trim().toLowerCase() !== 'mermaid') return null;
+    if (token.type !== 'code') return [];
+    if ((token.lang || '').trim().toLowerCase() !== 'mermaid') return [];
     return helpers.createNode('mermaidBlock', { code: token.text || '' }, []);
   },
 
