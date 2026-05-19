@@ -138,16 +138,21 @@ export const list = internalQuery({
     let installationIds: Set<string> | null = null;
 
     if (args.userId) {
-      const userInstallations = await ctx.db
-        .query('installations')
-        .withIndex('by_connected_user', (q) => q.eq('connectedBy', args.userId))
-        .collect();
-      installationIds = new Set(userInstallations.map((i) => i._id));
+      const allInstallations = await ctx.db.query('installations').collect();
+      installationIds = new Set(
+        allInstallations
+          .filter(
+            (i) =>
+              i.connectedBy === args.userId
+              || (i.connectedUsers ?? []).includes(args.userId!),
+          )
+          .map((i) => i._id),
+      );
     }
 
     const repos = await ctx.db.query('repos').collect();
     const filtered = installationIds
-      ? repos.filter((repo) => installationIds.has(repo.installationId))
+      ? repos.filter((repo) => installationIds!.has(repo.installationId))
       : repos;
 
     const enriched = await Promise.all(

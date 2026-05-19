@@ -9,6 +9,7 @@ export default defineSchema({
     accessToken: v.optional(v.string()),
     tokenExpiresAt: v.optional(v.number()),
     connectedBy: v.optional(v.id('users')),
+    connectedUsers: v.optional(v.array(v.id('users'))),
   })
     .index('by_github_installation_id', ['githubInstallationId'])
     .index('by_connected_user', ['connectedBy']),

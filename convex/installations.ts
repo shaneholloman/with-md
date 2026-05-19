@@ -34,12 +34,19 @@ export const upsert = internalMutation({
         githubAccountLogin: string;
         githubAccountType: string;
         connectedBy?: Id<'users'>;
+        connectedUsers?: Id<'users'>[];
       } = {
         githubAccountLogin: args.githubAccountLogin,
         githubAccountType: args.githubAccountType,
       };
       if (!existing.connectedBy && args.connectedBy) {
         patch.connectedBy = args.connectedBy;
+      }
+      if (args.connectedBy) {
+        const current = existing.connectedUsers ?? [];
+        if (!current.includes(args.connectedBy)) {
+          patch.connectedUsers = [...current, args.connectedBy];
+        }
       }
 
       await ctx.db.patch(existing._id, patch);
@@ -51,6 +58,7 @@ export const upsert = internalMutation({
       githubAccountLogin: args.githubAccountLogin,
       githubAccountType: args.githubAccountType,
       connectedBy: args.connectedBy,
+      connectedUsers: args.connectedBy ? [args.connectedBy] : [],
     });
   },
 });
