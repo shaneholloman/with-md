@@ -18,8 +18,12 @@ export const upsert = internalMutation({
       .first();
 
     if (existing) {
+      const isOrgInstallation =
+        existing.githubAccountType === 'Organization'
+        || args.githubAccountType === 'Organization';
       if (
-        existing.connectedBy
+        !isOrgInstallation
+        && existing.connectedBy
         && args.connectedBy
         && existing.connectedBy !== args.connectedBy
       ) {

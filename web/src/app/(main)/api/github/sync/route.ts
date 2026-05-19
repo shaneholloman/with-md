@@ -2,7 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { F, mutateConvex } from '@/lib/with-md/convex-client';
 import { canAccessRepoInInstallation } from '@/lib/with-md/github-access';
-import { fetchBlobContent, fetchMdTree, getInstallationToken, getRepoInstallationId } from '@/lib/with-md/github';
+import {
+  fetchBlobContent,
+  fetchMdTree,
+  getInstallationInfo,
+  getInstallationToken,
+  getRepoInstallationId,
+} from '@/lib/with-md/github';
 import { getSessionOrNull } from '@/lib/with-md/session';
 
 function categorizeFile(path: string): string {
@@ -59,11 +65,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
+    // Resolve the installation's true account info from GitHub (don't trust client).
+    // This ensures org installations are recorded correctly so multiple org members
+    // can share the same installation without tripping the owner-mismatch lock.
+    let accountLogin = body.accountLogin ?? body.owner;
+    let accountType = body.accountType ?? 'User';
+    try {
+      const info = await getInstallationInfo(ghInstallationId);
+      accountLogin = info.accountLogin;
+      accountType = info.accountType;
+    } catch {
+      // fall back to client-supplied / defaulted values
+    }
+
     // Upsert installation
     const installationId = await mutateConvex<string>(F.mutations.installationsUpsert, {
       githubInstallationId: ghInstallationId,
-      githubAccountLogin: body.accountLogin ?? body.owner,
-      githubAccountType: body.accountType ?? 'User',
+      githubAccountLogin: accountLogin,
+      githubAccountType: accountType,
       connectedBy: session.userId,
     });
 

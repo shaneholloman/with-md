@@ -73,6 +73,28 @@ export async function getInstallationToken(installationId: number): Promise<stri
   return data.token;
 }
 
+// ---------- Installation metadata ----------
+
+export async function getInstallationInfo(
+  installationId: number,
+): Promise<{ accountLogin: string; accountType: string }> {
+  const jwt = await createAppJwt();
+  const res = await fetch(`${GITHUB_API}/app/installations/${installationId}`, {
+    headers: {
+      Authorization: `Bearer ${jwt}`,
+      Accept: 'application/vnd.github+json',
+    },
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Failed to get installation ${installationId}: ${res.status} ${body}`);
+  }
+
+  const data = (await res.json()) as { account: { login: string; type: string } };
+  return { accountLogin: data.account.login, accountType: data.account.type };
+}
+
 // ---------- Resolve installation for a repo ----------
 
 export async function getRepoInstallationId(owner: string, repo: string): Promise<number> {
