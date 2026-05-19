@@ -19,6 +19,7 @@ interface InstallationDoc {
   _id: string;
   githubInstallationId: number;
   connectedBy?: string;
+  connectedUsers?: string[];
 }
 
 interface PushQueueItem {
@@ -62,7 +63,10 @@ export async function POST(req: NextRequest) {
       ghInstallationId = await getRepoInstallationId(repo.owner, repo.name);
     }
 
-    const ownedInApp = installation?.connectedBy === session.userId;
+    const ownedInApp =
+      !!installation
+      && (installation.connectedBy === session.userId
+        || (installation.connectedUsers ?? []).includes(session.userId));
     const hasGithubAccess = await canAccessRepoInInstallation(
       session.githubToken,
       ghInstallationId,

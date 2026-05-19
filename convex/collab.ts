@@ -167,7 +167,10 @@ async function verifyUserCollabToken(
     return { ok: false, reason: 'installation_not_found' };
   }
 
-  if (!installation.connectedBy || installation.connectedBy !== parsed.userId) {
+  const hasAccess =
+    installation.connectedBy === parsed.userId
+    || (installation.connectedUsers ?? []).includes(parsed.userId as Id<'users'>);
+  if (!hasAccess) {
     return { ok: false, reason: 'forbidden' };
   }
 

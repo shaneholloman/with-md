@@ -49,10 +49,14 @@ export async function POST(request: NextRequest) {
   const installation = await queryConvex<{
     _id: string;
     connectedBy?: string;
+    connectedUsers?: string[];
   } | null>(F.queries.installationsGet, {
     installationId: repo.installationId,
   });
-  if (!installation || installation.connectedBy !== session.userId) {
+  const hasAccess = !!installation
+    && (installation.connectedBy === session.userId
+      || (installation.connectedUsers ?? []).includes(session.userId));
+  if (!hasAccess) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 

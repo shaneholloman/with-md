@@ -37,6 +37,12 @@ interface RepoDoc {
 interface InstallationDoc {
   _id: string;
   connectedBy?: string;
+  connectedUsers?: string[];
+}
+
+function userHasInstallationAccess(installation: InstallationDoc, userId: string): boolean {
+  if (installation.connectedBy === userId) return true;
+  return (installation.connectedUsers ?? []).includes(userId);
 }
 
 interface MdFileDoc {
@@ -80,7 +86,7 @@ async function getOwnedRepo(repoId: string, sessionUserId: string): Promise<Repo
   const installation = await safeQuery<InstallationDoc>(F.queries.installationsGet, {
     installationId: repo.installationId as never,
   });
-  if (!installation || installation.connectedBy !== sessionUserId) {
+  if (!installation || !userHasInstallationAccess(installation, sessionUserId)) {
     return null;
   }
 
