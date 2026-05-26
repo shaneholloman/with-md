@@ -42,16 +42,48 @@ export const MermaidBlock = Node.create({
       dom.className = 'withmd-mermaid-block';
       dom.contentEditable = 'false';
 
+      const viewport = document.createElement('div');
+      viewport.className = 'withmd-mermaid-viewport';
+
+      const zoomLayer = document.createElement('div');
+      zoomLayer.className = 'withmd-mermaid-zoom';
+
       const svgHost = document.createElement('div');
       svgHost.className = 'withmd-mermaid-svg';
+
+      zoomLayer.appendChild(svgHost);
+      viewport.appendChild(zoomLayer);
 
       const errorHost = document.createElement('pre');
       errorHost.className = 'withmd-mermaid-error';
       errorHost.style.display = 'none';
 
+      const zoomLabel = document.createElement('span');
+      zoomLabel.className = 'withmd-mermaid-zoom-label';
+      zoomLabel.style.display = 'none';
+
       let editing = false;
       let currentCode = (node.attrs.code as string) || '';
       let textarea: HTMLTextAreaElement | null = null;
+      let scale = 1;
+      const MIN_SCALE = 0.15;
+      const MAX_SCALE = 3;
+
+      const updateZoom = (newScale: number) => {
+        scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, newScale));
+        zoomLayer.style.transform = `scale(${scale})`;
+        zoomLabel.textContent = `${Math.round(scale * 100)}%`;
+        zoomLabel.style.display = '';
+        clearTimeout(zoomLabel.dataset.tid as unknown as number);
+        zoomLabel.dataset.tid = String(setTimeout(() => { zoomLabel.style.display = 'none'; }, 1200));
+      };
+
+      viewport.addEventListener('wheel', (e) => {
+        if (!e.ctrlKey && !e.metaKey) return;
+        e.preventDefault();
+        const factor = e.deltaY > 0 ? 0.9 : 1.1;
+        updateZoom(scale * factor);
+      }, { passive: false });
 
       const renderSvg = (code: string) => {
         currentCode = code;
@@ -63,10 +95,10 @@ export const MermaidBlock = Node.create({
             font: 'Geist, ui-sans-serif, system-ui, sans-serif',
           });
           svgHost.innerHTML = svg;
-          svgHost.style.display = '';
+          viewport.style.display = '';
           errorHost.style.display = 'none';
         } catch (err) {
-          svgHost.style.display = 'none';
+          viewport.style.display = 'none';
           errorHost.style.display = '';
           const msg = err instanceof Error ? err.message : String(err);
           errorHost.textContent = `Mermaid render error:\n${msg}\n\n${code}`;
@@ -79,8 +111,9 @@ export const MermaidBlock = Node.create({
         editing = false;
         textarea = null;
         dom.classList.remove('is-editing');
-        dom.appendChild(svgHost);
+        dom.appendChild(viewport);
         dom.appendChild(errorHost);
+        dom.appendChild(zoomLabel);
 
         const pos = typeof getPos === 'function' ? getPos() : null;
         if (pos != null && newCode !== currentCode) {
@@ -108,8 +141,9 @@ export const MermaidBlock = Node.create({
         textarea = null;
         dom.classList.remove('is-editing');
         dom.innerHTML = '';
-        dom.appendChild(svgHost);
+        dom.appendChild(viewport);
         dom.appendChild(errorHost);
+        dom.appendChild(zoomLabel);
         renderSvg(currentCode);
       };
 
@@ -145,8 +179,9 @@ export const MermaidBlock = Node.create({
         enterEdit();
       });
 
-      dom.appendChild(svgHost);
+      dom.appendChild(viewport);
       dom.appendChild(errorHost);
+      dom.appendChild(zoomLabel);
       renderSvg(currentCode);
 
       return {
