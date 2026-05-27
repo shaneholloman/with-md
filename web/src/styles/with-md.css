@@ -4124,6 +4124,7 @@
   }
 
   .withmd-anon-share-toolbar {
+    top: -58px;
     left: 50%;
     right: auto;
     align-items: center;
