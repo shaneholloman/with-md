@@ -62,12 +62,38 @@ export const MermaidBlock = Node.create({
       zoomLabel.className = 'withmd-mermaid-zoom-label';
       zoomLabel.style.display = 'none';
 
+      const controls = document.createElement('div');
+      controls.className = 'withmd-mermaid-controls';
+      controls.setAttribute('aria-label', 'Mermaid diagram zoom controls');
+
+      const zoomOutButton = document.createElement('button');
+      zoomOutButton.type = 'button';
+      zoomOutButton.className = 'withmd-mermaid-zoom-btn';
+      zoomOutButton.setAttribute('aria-label', 'Zoom out diagram');
+      zoomOutButton.title = 'Zoom out';
+      zoomOutButton.textContent = '-';
+
+      const zoomInButton = document.createElement('button');
+      zoomInButton.type = 'button';
+      zoomInButton.className = 'withmd-mermaid-zoom-btn';
+      zoomInButton.setAttribute('aria-label', 'Zoom in diagram');
+      zoomInButton.title = 'Zoom in';
+      zoomInButton.textContent = '+';
+
+      controls.appendChild(zoomOutButton);
+      controls.appendChild(zoomInButton);
+
       let editing = false;
       let currentCode = (node.attrs.code as string) || '';
       let textarea: HTMLTextAreaElement | null = null;
       let scale = 1;
       const MIN_SCALE = 0.15;
       const MAX_SCALE = 3;
+
+      const updateZoomButtons = () => {
+        zoomOutButton.disabled = scale <= MIN_SCALE + 0.01;
+        zoomInButton.disabled = scale >= MAX_SCALE - 0.01;
+      };
 
       const updateZoom = (newScale: number) => {
         scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, newScale));
@@ -76,6 +102,7 @@ export const MermaidBlock = Node.create({
         zoomLabel.style.display = '';
         clearTimeout(zoomLabel.dataset.tid as unknown as number);
         zoomLabel.dataset.tid = String(setTimeout(() => { zoomLabel.style.display = 'none'; }, 1200));
+        updateZoomButtons();
       };
 
       viewport.addEventListener('wheel', (e) => {
@@ -84,6 +111,22 @@ export const MermaidBlock = Node.create({
         const factor = e.deltaY > 0 ? 0.9 : 1.1;
         updateZoom(scale * factor);
       }, { passive: false });
+
+      zoomOutButton.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        updateZoom(scale / 1.2);
+      });
+
+      zoomInButton.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        updateZoom(scale * 1.2);
+      });
+
+      controls.addEventListener('mousedown', (e) => e.stopPropagation());
+      controls.addEventListener('pointerdown', (e) => e.stopPropagation());
+      controls.addEventListener('dblclick', (e) => e.stopPropagation());
 
       const renderSvg = (code: string) => {
         currentCode = code;
@@ -96,9 +139,11 @@ export const MermaidBlock = Node.create({
           });
           svgHost.innerHTML = svg;
           viewport.style.display = '';
+          controls.style.display = '';
           errorHost.style.display = 'none';
         } catch (err) {
           viewport.style.display = 'none';
+          controls.style.display = 'none';
           errorHost.style.display = '';
           const msg = err instanceof Error ? err.message : String(err);
           errorHost.textContent = `Mermaid render error:\n${msg}\n\n${code}`;
@@ -111,6 +156,7 @@ export const MermaidBlock = Node.create({
         editing = false;
         textarea = null;
         dom.classList.remove('is-editing');
+        dom.appendChild(controls);
         dom.appendChild(viewport);
         dom.appendChild(errorHost);
         dom.appendChild(zoomLabel);
@@ -141,6 +187,7 @@ export const MermaidBlock = Node.create({
         textarea = null;
         dom.classList.remove('is-editing');
         dom.innerHTML = '';
+        dom.appendChild(controls);
         dom.appendChild(viewport);
         dom.appendChild(errorHost);
         dom.appendChild(zoomLabel);
@@ -179,9 +226,11 @@ export const MermaidBlock = Node.create({
         enterEdit();
       });
 
+      dom.appendChild(controls);
       dom.appendChild(viewport);
       dom.appendChild(errorHost);
       dom.appendChild(zoomLabel);
+      updateZoomButtons();
       renderSvg(currentCode);
 
       return {
@@ -197,6 +246,7 @@ export const MermaidBlock = Node.create({
           return true;
         },
         stopEvent(event: Event) {
+          if (controls.contains(event.target as HTMLElement)) return true;
           if (editing && dom.contains(event.target as HTMLElement)) return true;
           return false;
         },
