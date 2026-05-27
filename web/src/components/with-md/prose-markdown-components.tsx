@@ -69,23 +69,16 @@ function MermaidPreview({ code }: { code: string }) {
     userZoomed.current = false;
     diagramSize.current = getSvgNaturalSize(svgEl);
     fitDiagram();
+    const fitFrame = requestAnimationFrame(() => {
+      if (!userZoomed.current) fitDiagram();
+    });
+
+    return () => cancelAnimationFrame(fitFrame);
   }, [fitDiagram, svg]);
 
   useLayoutEffect(() => {
     applySvgScale(svgHostRef.current, diagramSize.current, scale);
   }, [scale, svg]);
-
-  useLayoutEffect(() => {
-    const viewport = viewportRef.current;
-    if (!viewport || typeof ResizeObserver === 'undefined') return;
-
-    const observer = new ResizeObserver(() => {
-      if (!userZoomed.current) fitDiagram();
-    });
-
-    observer.observe(viewport);
-    return () => observer.disconnect();
-  }, [fitDiagram]);
 
   const onWheel = useCallback((e: React.WheelEvent) => {
     if (shouldPassVerticalWheel(e)) {
