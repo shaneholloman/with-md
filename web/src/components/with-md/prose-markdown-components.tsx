@@ -7,6 +7,36 @@ import { renderMermaidSVG } from 'beautiful-mermaid';
 const MIN_MERMAID_SCALE = 0.15;
 const MAX_MERMAID_SCALE = 3;
 
+function scrollNearestPageContainer(start: HTMLElement, deltaY: number) {
+  let current: HTMLElement | null = start.parentElement;
+
+  while (current) {
+    const style = window.getComputedStyle(current);
+    const canScrollVertically =
+      current.scrollHeight > current.clientHeight &&
+      /auto|scroll|overlay/.test(style.overflowY);
+
+    if (canScrollVertically) {
+      current.scrollBy({ top: deltaY, behavior: 'auto' });
+      return;
+    }
+
+    current = current.parentElement;
+  }
+
+  window.scrollBy({ top: deltaY, behavior: 'auto' });
+}
+
+function shouldPassVerticalWheel(e: React.WheelEvent) {
+  return (
+    !e.ctrlKey &&
+    !e.metaKey &&
+    !e.shiftKey &&
+    Math.abs(e.deltaY) > 0 &&
+    Math.abs(e.deltaY) >= Math.abs(e.deltaX)
+  );
+}
+
 function MermaidPreview({ code }: { code: string }) {
   const { svg, error } = useMemo(() => {
     try {
@@ -43,6 +73,13 @@ function MermaidPreview({ code }: { code: string }) {
   }, [showZoomLabel]);
 
   const onWheel = useCallback((e: React.WheelEvent) => {
+    if (shouldPassVerticalWheel(e)) {
+      e.preventDefault();
+      e.stopPropagation();
+      scrollNearestPageContainer(e.currentTarget as HTMLElement, e.deltaY);
+      return;
+    }
+
     if (!e.ctrlKey && !e.metaKey) return;
     e.preventDefault();
     e.stopPropagation();

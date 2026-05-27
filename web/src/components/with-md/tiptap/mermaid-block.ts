@@ -1,6 +1,36 @@
 import { Node } from '@tiptap/core';
 import { renderMermaidSVG } from 'beautiful-mermaid';
 
+function scrollNearestPageContainer(start: HTMLElement, deltaY: number) {
+  let current: HTMLElement | null = start.parentElement;
+
+  while (current) {
+    const style = window.getComputedStyle(current);
+    const canScrollVertically =
+      current.scrollHeight > current.clientHeight &&
+      /auto|scroll|overlay/.test(style.overflowY);
+
+    if (canScrollVertically) {
+      current.scrollBy({ top: deltaY, behavior: 'auto' });
+      return;
+    }
+
+    current = current.parentElement;
+  }
+
+  window.scrollBy({ top: deltaY, behavior: 'auto' });
+}
+
+function shouldPassVerticalWheel(e: WheelEvent) {
+  return (
+    !e.ctrlKey &&
+    !e.metaKey &&
+    !e.shiftKey &&
+    Math.abs(e.deltaY) > 0 &&
+    Math.abs(e.deltaY) >= Math.abs(e.deltaX)
+  );
+}
+
 export const MermaidBlock = Node.create({
   name: 'mermaidBlock',
   group: 'block',
@@ -106,6 +136,13 @@ export const MermaidBlock = Node.create({
       };
 
       viewport.addEventListener('wheel', (e) => {
+        if (shouldPassVerticalWheel(e)) {
+          e.preventDefault();
+          e.stopPropagation();
+          scrollNearestPageContainer(viewport, e.deltaY);
+          return;
+        }
+
         if (!e.ctrlKey && !e.metaKey) return;
         e.preventDefault();
         const factor = e.deltaY > 0 ? 0.9 : 1.1;
