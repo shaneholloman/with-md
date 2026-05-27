@@ -1006,7 +1006,6 @@
 }
 
 .withmd-mermaid-zoom {
-  transform-origin: 0 0;
   width: fit-content;
   min-width: 100%;
 }
@@ -1018,6 +1017,7 @@
 
 .withmd-mermaid-svg svg {
   height: auto;
+  max-width: none;
 }
 
 .withmd-mermaid-zoom-label {
