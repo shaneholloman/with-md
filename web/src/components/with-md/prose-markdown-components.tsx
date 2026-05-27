@@ -33,17 +33,29 @@ function MermaidPreview({ code }: { code: string }) {
   }, [code]);
 
   const [scale, setScale] = useState(1);
-  const [showLabel, setShowLabel] = useState(false);
   const hideTimer = useRef<ReturnType<typeof setTimeout>>(null);
+  const labelVisible = useRef(false);
   const viewportRef = useRef<HTMLDivElement>(null);
   const svgHostRef = useRef<HTMLDivElement>(null);
+  const zoomLabelRef = useRef<HTMLSpanElement>(null);
   const diagramSize = useRef<DiagramSize | null>(null);
   const userZoomed = useRef(false);
 
   const showZoomLabel = useCallback(() => {
-    setShowLabel(true);
+    labelVisible.current = true;
     if (hideTimer.current) clearTimeout(hideTimer.current);
-    hideTimer.current = setTimeout(() => setShowLabel(false), 1200);
+    hideTimer.current = setTimeout(() => {
+      labelVisible.current = false;
+      if (zoomLabelRef.current) {
+        zoomLabelRef.current.style.display = 'none';
+      }
+    }, 1200);
+  }, []);
+
+  useLayoutEffect(() => {
+    return () => {
+      if (hideTimer.current) clearTimeout(hideTimer.current);
+    };
   }, []);
 
   const updateScale = useCallback((nextScale: number | ((current: number) => number)) => {
@@ -78,7 +90,11 @@ function MermaidPreview({ code }: { code: string }) {
 
   useLayoutEffect(() => {
     applySvgScale(svgHostRef.current, diagramSize.current, scale);
-  }, [scale, svg]);
+    if (zoomLabelRef.current) {
+      zoomLabelRef.current.textContent = `${Math.round(scale * 100)}%`;
+      zoomLabelRef.current.style.display = labelVisible.current ? '' : 'none';
+    }
+  });
 
   const onWheel = useCallback((e: React.WheelEvent) => {
     if (shouldPassVerticalWheel(e)) {
@@ -141,7 +157,7 @@ function MermaidPreview({ code }: { code: string }) {
           <div ref={svgHostRef} className="withmd-mermaid-svg" dangerouslySetInnerHTML={{ __html: svg ?? '' }} />
         </div>
       </div>
-      {showLabel && <span className="withmd-mermaid-zoom-label">{Math.round(scale * 100)}%</span>}
+      <span ref={zoomLabelRef} className="withmd-mermaid-zoom-label" style={{ display: 'none' }} />
     </div>
   );
 }
