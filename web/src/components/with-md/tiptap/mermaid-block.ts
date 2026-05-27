@@ -1,35 +1,16 @@
 import { Node } from '@tiptap/core';
 import { renderMermaidSVG } from 'beautiful-mermaid';
-
-function scrollNearestPageContainer(start: HTMLElement, deltaY: number) {
-  let current: HTMLElement | null = start.parentElement;
-
-  while (current) {
-    const style = window.getComputedStyle(current);
-    const canScrollVertically =
-      current.scrollHeight > current.clientHeight &&
-      /auto|scroll|overlay/.test(style.overflowY);
-
-    if (canScrollVertically) {
-      current.scrollBy({ top: deltaY, behavior: 'auto' });
-      return;
-    }
-
-    current = current.parentElement;
-  }
-
-  window.scrollBy({ top: deltaY, behavior: 'auto' });
-}
-
-function shouldPassVerticalWheel(e: WheelEvent) {
-  return (
-    !e.ctrlKey &&
-    !e.metaKey &&
-    !e.shiftKey &&
-    Math.abs(e.deltaY) > 0 &&
-    Math.abs(e.deltaY) >= Math.abs(e.deltaX)
-  );
-}
+import {
+  MAX_MERMAID_SCALE,
+  MIN_MERMAID_SCALE,
+  applySvgScale,
+  clampMermaidScale,
+  getFitScale,
+  getSvgNaturalSize,
+  scrollNearestPageContainer,
+  shouldPassVerticalWheel,
+  type DiagramSize,
+} from '../mermaid-viewer-utils';
 
 export const MermaidBlock = Node.create({
   name: 'mermaidBlock',
@@ -117,23 +98,40 @@ export const MermaidBlock = Node.create({
       let currentCode = (node.attrs.code as string) || '';
       let textarea: HTMLTextAreaElement | null = null;
       let scale = 1;
-      const MIN_SCALE = 0.15;
-      const MAX_SCALE = 3;
-
+      let diagramSize: DiagramSize | null = null;
+      let userZoomed = false;
+      let zoomLabelTimer: ReturnType<typeof setTimeout> | null = null;
       const updateZoomButtons = () => {
-        zoomOutButton.disabled = scale <= MIN_SCALE + 0.01;
-        zoomInButton.disabled = scale >= MAX_SCALE - 0.01;
+        zoomOutButton.disabled = scale <= MIN_MERMAID_SCALE + 0.01;
+        zoomInButton.disabled = scale >= MAX_MERMAID_SCALE - 0.01;
       };
 
-      const updateZoom = (newScale: number) => {
-        scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, newScale));
-        zoomLayer.style.transform = `scale(${scale})`;
-        zoomLabel.textContent = `${Math.round(scale * 100)}%`;
-        zoomLabel.style.display = '';
-        clearTimeout(zoomLabel.dataset.tid as unknown as number);
-        zoomLabel.dataset.tid = String(setTimeout(() => { zoomLabel.style.display = 'none'; }, 1200));
+      const fitDiagram = () => {
+        if (!diagramSize) return;
+        scale = getFitScale(viewport, diagramSize);
+        applySvgScale(svgHost, diagramSize, scale);
         updateZoomButtons();
       };
+
+      const updateZoom = (newScale: number, showLabel = true) => {
+        userZoomed = true;
+        scale = clampMermaidScale(newScale);
+        applySvgScale(svgHost, diagramSize, scale);
+        if (showLabel) {
+          zoomLabel.textContent = `${Math.round(scale * 100)}%`;
+          zoomLabel.style.display = '';
+          if (zoomLabelTimer) clearTimeout(zoomLabelTimer);
+          zoomLabelTimer = setTimeout(() => { zoomLabel.style.display = 'none'; }, 1200);
+        }
+        updateZoomButtons();
+      };
+
+      const resizeObserver = typeof ResizeObserver === 'undefined'
+        ? null
+        : new ResizeObserver(() => {
+            if (!userZoomed) fitDiagram();
+          });
+      resizeObserver?.observe(viewport);
 
       viewport.addEventListener('wheel', (e) => {
         if (shouldPassVerticalWheel(e)) {
@@ -178,6 +176,13 @@ export const MermaidBlock = Node.create({
           viewport.style.display = '';
           controls.style.display = '';
           errorHost.style.display = 'none';
+          userZoomed = false;
+          const svgEl = svgHost.querySelector('svg') as SVGSVGElement | null;
+          diagramSize = svgEl ? getSvgNaturalSize(svgEl) : null;
+          fitDiagram();
+          requestAnimationFrame(() => {
+            if (!userZoomed) fitDiagram();
+          });
         } catch (err) {
           viewport.style.display = 'none';
           controls.style.display = 'none';
@@ -288,6 +293,8 @@ export const MermaidBlock = Node.create({
           return false;
         },
         destroy() {
+          resizeObserver?.disconnect();
+          if (zoomLabelTimer) clearTimeout(zoomLabelTimer);
           if (editing) commitEdit();
         },
       };

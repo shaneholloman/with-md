@@ -1,41 +1,19 @@
 'use client';
 
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { Components } from 'react-markdown';
 import { renderMermaidSVG } from 'beautiful-mermaid';
-
-const MIN_MERMAID_SCALE = 0.15;
-const MAX_MERMAID_SCALE = 3;
-
-function scrollNearestPageContainer(start: HTMLElement, deltaY: number) {
-  let current: HTMLElement | null = start.parentElement;
-
-  while (current) {
-    const style = window.getComputedStyle(current);
-    const canScrollVertically =
-      current.scrollHeight > current.clientHeight &&
-      /auto|scroll|overlay/.test(style.overflowY);
-
-    if (canScrollVertically) {
-      current.scrollBy({ top: deltaY, behavior: 'auto' });
-      return;
-    }
-
-    current = current.parentElement;
-  }
-
-  window.scrollBy({ top: deltaY, behavior: 'auto' });
-}
-
-function shouldPassVerticalWheel(e: React.WheelEvent) {
-  return (
-    !e.ctrlKey &&
-    !e.metaKey &&
-    !e.shiftKey &&
-    Math.abs(e.deltaY) > 0 &&
-    Math.abs(e.deltaY) >= Math.abs(e.deltaX)
-  );
-}
+import {
+  MAX_MERMAID_SCALE,
+  MIN_MERMAID_SCALE,
+  applySvgScale,
+  clampMermaidScale,
+  getFitScale,
+  getSvgNaturalSize,
+  scrollNearestPageContainer,
+  shouldPassVerticalWheel,
+  type DiagramSize,
+} from './mermaid-viewer-utils';
 
 function MermaidPreview({ code }: { code: string }) {
   const { svg, error } = useMemo(() => {
@@ -57,6 +35,10 @@ function MermaidPreview({ code }: { code: string }) {
   const [scale, setScale] = useState(1);
   const [showLabel, setShowLabel] = useState(false);
   const hideTimer = useRef<ReturnType<typeof setTimeout>>(null);
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const svgHostRef = useRef<HTMLDivElement>(null);
+  const diagramSize = useRef<DiagramSize | null>(null);
+  const userZoomed = useRef(false);
 
   const showZoomLabel = useCallback(() => {
     setShowLabel(true);
@@ -65,12 +47,45 @@ function MermaidPreview({ code }: { code: string }) {
   }, []);
 
   const updateScale = useCallback((nextScale: number | ((current: number) => number)) => {
+    userZoomed.current = true;
     setScale((current) => {
       const next = typeof nextScale === 'function' ? nextScale(current) : nextScale;
-      return Math.min(MAX_MERMAID_SCALE, Math.max(MIN_MERMAID_SCALE, next));
+      return clampMermaidScale(next);
     });
     showZoomLabel();
   }, [showZoomLabel]);
+
+  const fitDiagram = useCallback(() => {
+    if (!viewportRef.current || !diagramSize.current) return;
+    const fitScale = getFitScale(viewportRef.current, diagramSize.current);
+    applySvgScale(svgHostRef.current, diagramSize.current, fitScale);
+    setScale(fitScale);
+  }, []);
+
+  useLayoutEffect(() => {
+    const svgEl = svgHostRef.current?.querySelector('svg') as SVGSVGElement | null;
+    if (!svgEl) return;
+
+    userZoomed.current = false;
+    diagramSize.current = getSvgNaturalSize(svgEl);
+    fitDiagram();
+  }, [fitDiagram, svg]);
+
+  useLayoutEffect(() => {
+    applySvgScale(svgHostRef.current, diagramSize.current, scale);
+  }, [scale, svg]);
+
+  useLayoutEffect(() => {
+    const viewport = viewportRef.current;
+    if (!viewport || typeof ResizeObserver === 'undefined') return;
+
+    const observer = new ResizeObserver(() => {
+      if (!userZoomed.current) fitDiagram();
+    });
+
+    observer.observe(viewport);
+    return () => observer.disconnect();
+  }, [fitDiagram]);
 
   const onWheel = useCallback((e: React.WheelEvent) => {
     if (shouldPassVerticalWheel(e)) {
@@ -128,9 +143,9 @@ function MermaidPreview({ code }: { code: string }) {
           +
         </button>
       </div>
-      <div className="withmd-mermaid-viewport">
-        <div className="withmd-mermaid-zoom" style={{ transform: `scale(${scale})` }}>
-          <div className="withmd-mermaid-svg" dangerouslySetInnerHTML={{ __html: svg ?? '' }} />
+      <div ref={viewportRef} className="withmd-mermaid-viewport">
+        <div className="withmd-mermaid-zoom">
+          <div ref={svgHostRef} className="withmd-mermaid-svg" dangerouslySetInnerHTML={{ __html: svg ?? '' }} />
         </div>
       </div>
       {showLabel && <span className="withmd-mermaid-zoom-label">{Math.round(scale * 100)}%</span>}
