@@ -101,6 +101,7 @@ export const MermaidBlock = Node.create({
       let diagramSize: DiagramSize | null = null;
       let userZoomed = false;
       let zoomLabelTimer: ReturnType<typeof setTimeout> | null = null;
+      let fitFrame: number | null = null;
       const updateZoomButtons = () => {
         zoomOutButton.disabled = scale <= MIN_MERMAID_SCALE + 0.01;
         zoomInButton.disabled = scale >= MAX_MERMAID_SCALE - 0.01;
@@ -125,13 +126,6 @@ export const MermaidBlock = Node.create({
         }
         updateZoomButtons();
       };
-
-      const resizeObserver = typeof ResizeObserver === 'undefined'
-        ? null
-        : new ResizeObserver(() => {
-            if (!userZoomed) fitDiagram();
-          });
-      resizeObserver?.observe(viewport);
 
       viewport.addEventListener('wheel', (e) => {
         if (shouldPassVerticalWheel(e)) {
@@ -180,7 +174,8 @@ export const MermaidBlock = Node.create({
           const svgEl = svgHost.querySelector('svg') as SVGSVGElement | null;
           diagramSize = svgEl ? getSvgNaturalSize(svgEl) : null;
           fitDiagram();
-          requestAnimationFrame(() => {
+          if (fitFrame !== null) cancelAnimationFrame(fitFrame);
+          fitFrame = requestAnimationFrame(() => {
             if (!userZoomed) fitDiagram();
           });
         } catch (err) {
@@ -293,8 +288,8 @@ export const MermaidBlock = Node.create({
           return false;
         },
         destroy() {
-          resizeObserver?.disconnect();
           if (zoomLabelTimer) clearTimeout(zoomLabelTimer);
+          if (fitFrame !== null) cancelAnimationFrame(fitFrame);
           if (editing) commitEdit();
         },
       };
